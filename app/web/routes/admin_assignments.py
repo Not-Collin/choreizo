@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
@@ -91,7 +91,6 @@ async def update_assignment_status(
     admin: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    from fastapi import HTTPException
     if status not in _VALID_STATUSES:
         raise HTTPException(status_code=400, detail="Invalid status.")
     a = await session.get(Assignment, assignment_id)
