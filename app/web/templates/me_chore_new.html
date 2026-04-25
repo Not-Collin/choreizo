@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Add chore — Choreizo{% endblock %}
+{% block content %}
+<hgroup>
+  <h2>Add a chore</h2>
+  <p class="muted">Anyone in the household can add chores. The admin can edit or remove them later.</p>
+</hgroup>
+
+{% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+
+<form method="post" action="/me/chores/new">
+  <label>Name<input type="text" name="name" required maxlength="200" value="{{ form.name | default('') }}"></label>
+  <label>Description (optional)<textarea name="description" rows="3">{{ form.description | default('') }}</textarea></label>
+  <div class="grid">
+    <label>Frequency (days)<input type="number" name="frequency_days" min="1" required value="{{ form.frequency_days | default(7) }}"></label>
+    <label>Priority
+      <select name="priority">
+        {% set pr = form.priority | default(0) %}
+        <option value="0" {% if pr|int == 0 %}selected{% endif %}>Normal</option>
+        <option value="1" {% if pr|int == 1 %}selected{% endif %}>High</option>
+      </select>
+    </label>
+    <label>Estimated minutes (optional)<input type="number" name="estimated_minutes" min="1" value="{{ form.estimated_minutes | default('') }}"></label>
+  </div>
+  <div role="group">
+    <button type="submit">Add chore</button>
+    <a href="/me/chores" role="button" class="secondary outline">Cancel</a>
+  </div>
+</form>
+{% endblock %}

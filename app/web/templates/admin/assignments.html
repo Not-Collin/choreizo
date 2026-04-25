@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Assignments — Choreizo{% endblock %}
+{% block content %}
+<header style="display:flex; align-items:center; justify-content:space-between;">
+  <hgroup>
+    <h2>Today's assignments</h2>
+    <p class="muted">{{ today }} ({{ today_rows|length }} chore{{ '' if today_rows|length == 1 else 's' }})</p>
+  </hgroup>
+  <div role="group" style="margin:0">
+    <form method="post" action="/admin/run-assignment" style="display:inline; margin:0;">
+      <button type="submit">Run assignment now</button>
+    </form>
+    <form method="post" action="/admin/send-now" style="display:inline; margin:0;">
+      <button type="submit" class="secondary">Send now</button>
+    </form>
+    <form method="post" action="/admin/force-send" style="display:inline; margin:0;">
+      <button type="submit" class="contrast outline"
+              title="Sends to all linked users right now, ignoring send-time windows. Good for testing.">
+        ⚡ Force send
+      </button>
+    </form>
+  </div>
+</header>
+
+{% if saved %}<div class="flash ok">Assignment run.</div>{% endif %}
+{% if sent %}<div class="flash ok">Sent daily DMs to {{ sent }} user{{ '' if sent == 1 else 's' }}.</div>{% endif %}
+{% if request.query_params.get('force_no_bot') %}<div class="flash error">No Telegram bot is running — set TELEGRAM_BOT_TOKEN in your .env and restart.</div>{% endif %}
+
+{% if today_rows %}
+<figure>
+  <table class="compact striped">
+    <thead><tr><th>Chore</th><th>Assigned to</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for a in today_rows %}
+      <tr>
+        <td><strong>{{ a.chore.name }}</strong></td>
+        <td>{{ a.user.name }}</td>
+        <td>{{ a.status }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</figure>
+{% else %}
+<p class="muted">Nothing assigned today yet.</p>
+{% endif %}
+
+<h3>Recent</h3>
+{% if recent_rows %}
+<figure>
+  <table class="compact striped">
+    <thead><tr><th>Date</th><th>Chore</th><th>Assigned to</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for a in recent_rows %}
+      <tr>
+        <td>{{ a.assigned_date }}</td>
+        <td>{{ a.chore.name }}</td>
+        <td>{{ a.user.name }}</td>
+        <td>{{ a.status }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</figure>
+{% else %}
+<p class="muted">No prior assignments.</p>
+{% endif %}
+{% endblock %}

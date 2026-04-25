@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}My chores — Choreizo{% endblock %}
+{% block content %}
+<hgroup>
+  <h2>Welcome, {{ current_user.name }}</h2>
+  <p class="muted">
+    {% if current_user.telegram_chat_id %}
+      Linked to Telegram{% if current_user.telegram_username %} as @{{ current_user.telegram_username }}{% endif %}.
+    {% else %}
+      Not yet linked to Telegram.
+    {% endif %}
+  </p>
+</hgroup>
+
+<article>
+  <h3>Today</h3>
+  <p class="muted">Daily chore assignments arrive in Phase 6. For now, this is just a placeholder.</p>
+</article>
+
+<article>
+  <h3>My chores</h3>
+  <p class="muted">
+    The Phase 5 update will list every chore here as a checkbox so you can opt in or out individually.
+  </p>
+</article>
+{% endblock %}

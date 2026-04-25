@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Eligibility — {{ chore.name }} — Choreizo{% endblock %}
+{% block content %}
+<hgroup>
+  <h2>Eligibility — {{ chore.name }}</h2>
+  <p class="muted">
+    <strong>Default:</strong> any active member can be assigned.
+    <strong>Allow:</strong> only allow-listed members are eligible (overrides everything).
+    <strong>Deny:</strong> never assign this chore to this member.
+  </p>
+</hgroup>
+
+{% if saved %}<div class="flash ok">Eligibility saved.</div>{% endif %}
+
+<form method="post" action="/admin/chores/{{ chore.id }}/eligibility">
+  <figure>
+    <table class="compact striped">
+      <thead>
+        <tr><th>Member</th><th>Default</th><th>Allow</th><th>Deny</th></tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        {% set m = modes.get(u.id) or 'default' %}
+        <tr>
+          <td>{{ u.name }}{% if not u.active %} <small class="muted">(inactive)</small>{% endif %}</td>
+          <td><input type="radio" name="mode_{{ u.id }}" value="default" {% if m == 'default' %}checked{% endif %}></td>
+          <td><input type="radio" name="mode_{{ u.id }}" value="allow"   {% if m == 'allow'   %}checked{% endif %}></td>
+          <td><input type="radio" name="mode_{{ u.id }}" value="deny"    {% if m == 'deny'    %}checked{% endif %}></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </figure>
+  <div role="group">
+    <button type="submit">Save</button>
+    <a href="/admin/chores" role="button" class="secondary outline">Back to chores</a>
+  </div>
+</form>
+{% endblock %}

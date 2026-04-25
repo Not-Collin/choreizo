@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Sign in — Choreizo{% endblock %}
+{% block content %}
+<article style="max-width: 24rem; margin: 2rem auto;">
+  <hgroup>
+    <h2>Sign in</h2>
+    <p class="muted">Choreizo admin</p>
+  </hgroup>
+  {% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+  <form method="post" action="/login">
+    <label>
+      Name
+      <input type="text" name="name" autocomplete="username" required autofocus value="{{ name | default('admin') }}">
+    </label>
+    <label>
+      Password
+      <input type="password" name="password" autocomplete="current-password" required>
+    </label>
+    <button type="submit">Sign in</button>
+  </form>
+</article>
+{% endblock %}

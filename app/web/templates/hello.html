@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block content %}
+<hgroup>
+  <h1>{{ app_name }}</h1>
+  <p>A self-hosted random daily chore selector and tracker.</p>
+</hgroup>
+
+<article>
+  <header><strong>Scaffolding phase</strong></header>
+  <p>This is a placeholder landing page. The admin panel and member-facing
+    pages arrive in later build phases.</p>
+  <ul>
+    <li><a href="/health">Health check</a> &mdash; used by the Docker healthcheck</li>
+    <li><a href="/docs">Interactive API docs</a> (Swagger UI)</li>
+    <li><a href="/redoc">ReDoc</a></li>
+  </ul>
+</article>
+{% endblock %}

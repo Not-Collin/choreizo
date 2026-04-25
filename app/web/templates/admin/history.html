@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}History — Choreizo{% endblock %}
+{% block content %}
+<hgroup>
+  <h2>Assignment history</h2>
+  <p class="muted">{{ total }} assignment{{ '' if total == 1 else 's' }} on record</p>
+</hgroup>
+
+<form method="get" action="/admin/history">
+  <div class="grid">
+    <label>Member
+      <select name="user_id">
+        <option value="">— all —</option>
+        {% for u in users %}
+        <option value="{{ u.id }}" {% if user_id == u.id %}selected{% endif %}>{{ u.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Chore
+      <select name="chore_id">
+        <option value="">— all —</option>
+        {% for c in chores %}
+        <option value="{{ c.id }}" {% if chore_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label style="display:flex; align-items:end;"><button type="submit">Filter</button></label>
+  </div>
+</form>
+
+{% if rows %}
+<figure>
+  <table class="compact striped">
+    <thead><tr><th>Date</th><th>Chore</th><th>Assigned to</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for a in rows %}
+      <tr>
+        <td>{{ a.assigned_date }}</td>
+        <td>{{ a.chore.name }}</td>
+        <td>{{ a.user.name }}</td>
+        <td>{{ a.status }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</figure>
+
+<nav>
+  <ul>
+    {% if offset > 0 %}
+      <li><a href="?{{ qs_prev }}" role="button" class="secondary outline">← Previous</a></li>
+    {% endif %}
+    {% if offset + page_size < total %}
+      <li><a href="?{{ qs_next }}" role="button" class="secondary outline">Next →</a></li>
+    {% endif %}
+  </ul>
+</nav>
+{% else %}
+<p class="muted">No assignments matched your filters.</p>
+{% endif %}
+{% endblock %}

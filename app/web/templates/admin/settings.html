@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Settings — Choreizo{% endblock %}
+{% block content %}
+<h2>Settings</h2>
+<p class="muted">These values are set via environment variables. To change them, edit your <code>.env</code> file and restart the container.</p>
+
+<article>
+  <header><strong>🤖 Telegram Bot</strong></header>
+  <table class="compact">
+    <tr>
+      <th>Bot token</th>
+      <td>
+        {% if bot_configured %}
+          <ins>Configured ✓</ins>
+        {% else %}
+          <del>Not set — bot is disabled</del>
+        {% endif %}
+      </td>
+    </tr>
+    <tr><th>Mode</th><td><code>{{ s.telegram_mode }}</code></td></tr>
+    <tr><th>Base URL</th><td><code>{{ s.base_url }}</code></td></tr>
+  </table>
+</article>
+
+<article>
+  <header><strong>🕐 Timing</strong></header>
+  <table class="compact">
+    <tr><th>House timezone</th><td><code>{{ s.house_timezone }}</code></td></tr>
+    <tr><th>Daily assignment hour</th><td><code>{{ s.daily_assignment_hour }}:00</code> (assignments generated before send time)</td></tr>
+    <tr>
+      <th>High-priority reminder interval</th>
+      <td><code>{{ s.high_priority_reminder_interval_hours }}h</code></td>
+    </tr>
+    <tr>
+      <th>Escalate after</th>
+      <td><code>{{ s.escalation_after_hours }}h</code> of no response</td>
+    </tr>
+    <tr>
+      <th>Admin notify after</th>
+      <td><code>{{ s.admin_notify_after_hours }}h</code> of no response</td>
+    </tr>
+    <tr>
+      <th>Roll over high-priority</th>
+      <td>
+        {% if s.rollover_high_priority %}
+          <ins>Enabled</ins> — unresolved high-priority chores carry over as Overdue
+        {% else %}
+          <del>Disabled</del> — unresolved chores are closed each night
+        {% endif %}
+      </td>
+    </tr>
+  </table>
+</article>
+
+<article>
+  <header><strong>🗄 Storage</strong></header>
+  <table class="compact">
+    <tr><th>Database path</th><td><code>{{ s.database_path }}</code></td></tr>
+    <tr><th>Log level</th><td><code>{{ s.log_level }}</code></td></tr>
+    <tr><th>Server</th><td><code>{{ s.host }}:{{ s.port }}</code></td></tr>
+  </table>
+</article>
+
+<article>
+  <header><strong>📖 .env.example</strong></header>
+  <p>A full template of all supported variables:</p>
+  <pre><code># --- Required ---
+TELEGRAM_BOT_TOKEN=          # from @BotFather
+ADMIN_PASSWORD=              # bootstrap admin password
+SESSION_SECRET=              # run: python -c "import secrets; print(secrets.token_hex(32))"
+BASE_URL=http://your-lan-ip:8000
+
+# --- Timing ---
+HOUSE_TIMEZONE=America/Los_Angeles
+DAILY_ASSIGNMENT_HOUR=6
+HIGH_PRIORITY_REMINDER_INTERVAL_HOURS=3
+ESCALATION_AFTER_HOURS=24
+ADMIN_NOTIFY_AFTER_HOURS=36
+ROLLOVER_HIGH_PRIORITY=true
+
+# --- Storage ---
+DATABASE_PATH=/data/choreizo.db
+LOG_LEVEL=INFO
+
+# --- Telegram ---
+TELEGRAM_MODE=polling
+
+# --- Server ---
+HOST=0.0.0.0
+PORT=8000</code></pre>
+</article>
+{% endblock %}

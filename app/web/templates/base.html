@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ app_name | default("Choreizo") }}{% endblock %}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <style>
+    nav.app-nav { margin-bottom: 1.5rem; }
+    .muted { color: var(--pico-muted-color); }
+    .flash { padding: 0.75rem 1rem; border-radius: var(--pico-border-radius); margin-bottom: 1rem; }
+    .flash.error { background: var(--pico-del-color, #ffe5e5); }
+    .flash.ok    { background: var(--pico-ins-color, #e5ffe5); }
+    table.compact td, table.compact th { padding: 0.4rem 0.6rem; }
+    .row-actions form { display: inline; margin: 0; }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <nav class="app-nav">
+      <ul><li><strong>Choreizo</strong></li></ul>
+      <ul>
+        {% if current_user %}
+          {% if current_user.is_admin %}
+            <li><a href="/admin/assignments">Today</a></li>
+            <li><a href="/admin/chores">Chores</a></li>
+            <li><a href="/admin/members">Members</a></li>
+            <li><a href="/admin/invites">Invites</a></li>
+            <li><a href="/admin/history">History</a></li>
+            <li><a href="/admin/stats">Stats</a></li>
+            <li><a href="/admin/settings">Settings</a></li>
+          {% else %}
+            <li><a href="/me">My chores</a></li>
+          {% endif %}
+          <li class="muted">{{ current_user.name }}</li>
+          <li>
+            <form method="post" action="/logout" style="margin:0">
+              <button type="submit" class="secondary outline" style="padding:0.25rem 0.75rem">Sign out</button>
+            </form>
+          </li>
+        {% else %}
+          <li><a href="/login">Sign in</a></li>
+        {% endif %}
+      </ul>
+    </nav>
+    {% set fk = flash_kind | default("ok") %}
+    {% if flash %}<div class="flash {{ fk }}">{{ flash }}</div>{% endif %}
+    {% block content %}{% endblock %}
+    <footer class="muted"><small>Choreizo v{{ version | default("0.1.0") }}</small></footer>
+  </main>
+</body>
+</html>

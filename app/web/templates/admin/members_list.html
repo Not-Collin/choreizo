@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Members — Choreizo{% endblock %}
+{% block content %}
+<header style="display:flex; align-items:center; justify-content:space-between;">
+  <hgroup>
+    <h2>Members</h2>
+    <p class="muted">{{ users|length }} member{{ '' if users|length == 1 else 's' }}</p>
+  </hgroup>
+  <span class="muted"><small>Invite codes coming in Phase 4.</small></span>
+</header>
+
+<figure>
+  <table class="compact striped">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Role</th>
+        <th>Telegram</th>
+        <th>Send time</th>
+        <th>Active</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td><strong>{{ u.name }}</strong></td>
+        <td>
+          {% if u.is_admin %}<span>admin</span>{% endif %}
+          {% if u.is_escalation %}<span class="muted"> · escalation</span>{% endif %}
+          {% if not u.is_admin and not u.is_escalation %}<span class="muted">member</span>{% endif %}
+        </td>
+        <td>
+          {% if u.telegram_chat_id %}
+            @{{ u.telegram_username or u.telegram_chat_id }}
+          {% else %}
+            <span class="muted">unlinked</span>
+          {% endif %}
+        </td>
+        <td>{{ u.send_time }}</td>
+        <td>{{ 'yes' if u.active else 'no' }}</td>
+        <td class="row-actions" style="text-align:right;">
+          <form method="post" action="/admin/members/{{ u.id }}/toggle">
+            <button type="submit" class="secondary outline" style="padding:0.2rem 0.6rem">
+              {{ 'Deactivate' if u.active else 'Reactivate' }}
+            </button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</figure>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if chore else 'New' }} chore — Choreizo{% endblock %}
+{% block content %}
+<hgroup>
+  <h2>{{ 'Edit chore' if chore else 'New chore' }}</h2>
+  {% if chore %}<p class="muted">Created {{ chore.created_at.strftime('%Y-%m-%d') }}</p>{% endif %}
+</hgroup>
+
+{% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+
+<form method="post" action="{{ '/admin/chores/' ~ chore.id if chore else '/admin/chores' }}">
+  <label>
+    Name
+    <input type="text" name="name" required maxlength="200" value="{{ form.name | default(chore.name if chore else '') }}">
+  </label>
+  <label>
+    Description (optional)
+    <textarea name="description" rows="3">{{ form.description | default(chore.description if chore else '') }}</textarea>
+  </label>
+  <div class="grid">
+    <label>
+      Frequency (days)
+      <input type="number" name="frequency_days" min="1" required
+             value="{{ form.frequency_days | default(chore.frequency_days if chore else 7) }}">
+    </label>
+    <label>
+      Priority
+      <select name="priority">
+        {% set pr = form.priority | default(chore.priority if chore else 0) %}
+        <option value="0" {% if pr|int == 0 %}selected{% endif %}>Normal</option>
+        <option value="1" {% if pr|int == 1 %}selected{% endif %}>High</option>
+      </select>
+    </label>
+    <label>
+      Estimated minutes (optional)
+      <input type="number" name="estimated_minutes" min="1"
+             value="{{ form.estimated_minutes | default(chore.estimated_minutes if chore and chore.estimated_minutes else '') }}">
+    </label>
+  </div>
+  <label>
+    <input type="checkbox" name="enabled" value="1"
+           {% if (form and form.get('enabled')) or (chore is none) or (chore and chore.enabled) %}checked{% endif %}>
+    Enabled
+  </label>
+  <div role="group">
+    <button type="submit">{{ 'Save changes' if chore else 'Create chore' }}</button>
+    <a href="/admin/chores" role="button" class="secondary outline">Cancel</a>
+  </div>
+</form>
+{% endblock %}

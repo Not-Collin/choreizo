@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Stats — Choreizo{% endblock %}
+{% block content %}
+<hgroup>
+  <h2>Stats</h2>
+  <p class="muted">Last {{ window_days }} days. <a href="?window_days=7">7d</a> · <a href="?window_days=30">30d</a> · <a href="?window_days=90">90d</a></p>
+</hgroup>
+
+<h3>By member</h3>
+{% if user_rows %}
+<figure>
+  <table class="compact striped">
+    <thead><tr><th>Member</th><th>Completion rate</th><th>Done</th><th>Pending</th><th>Skipped</th><th>Ignored</th><th>Total</th></tr></thead>
+    <tbody>
+      {% for r in user_rows %}
+      <tr>
+        <td><strong>{{ r.name }}</strong></td>
+        <td><strong>{{ '%.0f' % (r.completion_rate * 100) }}%</strong></td>
+        <td>{{ r.completed }}</td>
+        <td>{{ r.pending }}</td>
+        <td>{{ r.skipped }}</td>
+        <td>{{ r.ignored }}</td>
+        <td>{{ r.total }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</figure>
+{% else %}
+<p class="muted">No assignment data in this window.</p>
+{% endif %}
+
+<h3>By chore</h3>
+{% if chore_rows %}
+<figure>
+  <table class="compact striped">
+    <thead><tr><th>Chore</th><th>Completion rate</th><th>Done</th><th>Pending</th><th>Skipped</th><th>Ignored</th><th>Total</th></tr></thead>
+    <tbody>
+      {% for r in chore_rows %}
+      <tr>
+        <td><strong>{{ r.name }}</strong></td>
+        <td><strong>{{ '%.0f' % (r.completion_rate * 100) }}%</strong></td>
+        <td>{{ r.completed }}</td>
+        <td>{{ r.pending }}</td>
+        <td>{{ r.skipped }}</td>
+        <td>{{ r.ignored }}</td>
+        <td>{{ r.total }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</figure>
+{% else %}
+<p class="muted">No assignment data in this window.</p>
+{% endif %}
+{% endblock %}

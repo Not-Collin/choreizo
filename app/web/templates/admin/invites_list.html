@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Invites — Choreizo{% endblock %}
+{% block content %}
+<hgroup>
+  <h2>Invite codes</h2>
+  <p class="muted">One-shot codes a household member redeems by sending <code>/start &lt;code&gt;</code> to the bot.</p>
+</hgroup>
+
+{% if just_minted %}
+<div class="flash ok">
+  New code: <code>{{ just_minted }}</code><br>
+  Telegram instruction: <code>/start {{ just_minted }}</code>
+</div>
+{% endif %}
+
+<article>
+  <h3>Mint a new code</h3>
+  <form method="post" action="/admin/invites">
+    <div class="grid">
+      <label>
+        Intended name (optional)
+        <input type="text" name="intended_name" maxlength="100" placeholder="Partner">
+      </label>
+      <label>
+        Expires in (hours)
+        <input type="number" name="ttl_hours" min="1" max="720" value="72">
+      </label>
+      <label style="display:flex; align-items:end; gap:0.5rem;">
+        <input type="checkbox" name="is_admin" value="1">
+        <span>Admin</span>
+      </label>
+    </div>
+    <button type="submit">Generate code</button>
+  </form>
+</article>
+
+<h3>Existing codes</h3>
+{% if codes %}
+<figure>
+  <table class="compact striped">
+    <thead>
+      <tr>
+        <th>Code</th>
+        <th>Intended name</th>
+        <th>Role</th>
+        <th>Status</th>
+        <th>Created</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in codes %}
+      <tr>
+        <td><code>{{ c.code }}</code></td>
+        <td>{{ c.intended_name or '—' }}</td>
+        <td>{{ 'admin' if c.is_admin else 'member' }}</td>
+        <td>
+          {% if c.used_at %}
+            <span class="muted">used by {{ c.used_by_user.name if c.used_by_user else '?' }}</span>
+          {% elif c.is_expired %}
+            <span class="muted">expired</span>
+          {% else %}
+            active{% if c.expires_at %}<br><small class="muted">expires {{ c.expires_at.strftime('%Y-%m-%d %H:%M') }} UTC</small>{% endif %}
+          {% endif %}
+        </td>
+        <td><small class="muted">{{ c.created_at.strftime('%Y-%m-%d') }}</small></td>
+        <td class="row-actions" style="text-align:right;">
+          {% if not c.used_at %}
+          <form method="post" action="/admin/invites/{{ c.code }}/revoke"
+                onsubmit="return confirm('Revoke this code?');">
+            <button type="submit" class="contrast outline" style="padding:0.2rem 0.6rem">Revoke</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</figure>
+{% else %}
+<p class="muted">No codes yet.</p>
+{% endif %}
+{% endblock %}

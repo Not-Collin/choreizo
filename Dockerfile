@@ -1,0 +1,35 @@
+# syntax=docker/dockerfile:1.7
+
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Non-root user; /data is the SQLite + state volume.
+RUN useradd -m -u 1000 choreizo \
+    && mkdir -p /data \
+    && chown choreizo:choreizo /data
+
+WORKDIR /app
+
+# Install Python deps first so source-only changes don't bust the wheel cache.
+COPY pyproject.toml README.md ./
+RUN pip install --upgrade pip && pip install .
+
+# Copy source after deps so code edits don't invalidate the pip layer.
+COPY app ./app
+COPY alembic ./alembic
+COPY alembic.ini ./
+COPY docker-entrypoint.sh ./
+RUN chmod +x /app/docker-entrypoint.sh
+
+USER choreizo
+VOLUME ["/data"]
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).status == 200 else 1)"
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

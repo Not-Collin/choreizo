@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Chores — Choreizo{% endblock %}
+{% block content %}
+<header style="display:flex; align-items:center; justify-content:space-between;">
+  <hgroup>
+    <h2>Chores</h2>
+    <p class="muted">{{ chores|length }} chore{{ '' if chores|length == 1 else 's' }} defined</p>
+  </hgroup>
+  <a href="/admin/chores/new" role="button">+ New chore</a>
+</header>
+
+{% if chores %}
+<figure>
+  <table class="compact striped">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Frequency</th>
+        <th>Priority</th>
+        <th>Est. min</th>
+        <th>Enabled</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in chores %}
+      <tr>
+        <td><strong>{{ c.name }}</strong>{% if c.description %}<br><small class="muted">{{ c.description }}</small>{% endif %}</td>
+        <td>every {{ c.frequency_days }}d</td>
+        <td>{{ 'high' if c.priority == 1 else 'normal' }}</td>
+        <td>{{ c.estimated_minutes or '—' }}</td>
+        <td>{{ 'yes' if c.enabled else 'no' }}</td>
+        <td class="row-actions" style="text-align:right;">
+          <a href="/admin/chores/{{ c.id }}/eligibility" role="button" class="secondary outline" style="padding:0.2rem 0.6rem">Who</a>
+          <a href="/admin/chores/{{ c.id }}/edit" role="button" class="secondary outline" style="padding:0.2rem 0.6rem">Edit</a>
+          <form method="post" action="/admin/chores/{{ c.id }}/delete"
+                onsubmit="return confirm('Delete chore &quot;{{ c.name }}&quot;?');">
+            <button type="submit" class="contrast outline" style="padding:0.2rem 0.6rem">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</figure>
+{% else %}
+<p class="muted">No chores yet. Create one to get started.</p>
+{% endif %}
+{% endblock %}

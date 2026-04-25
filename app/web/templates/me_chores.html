@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}My chores — Choreizo{% endblock %}
+{% block content %}
+<hgroup>
+  <h2>My chores</h2>
+  <p class="muted">Tick the chores you're willing to do. Untick to opt out.</p>
+</hgroup>
+
+{% if saved %}<div class="flash ok">Preferences saved.</div>{% endif %}
+{% if locked_out %}
+  <div class="flash error">
+    Note: chores marked <em>admin-locked</em> are managed by the admin and you can't change your status here.
+  </div>
+{% endif %}
+
+<form method="post" action="/me/chores">
+  <figure>
+    <table class="compact striped">
+      <thead>
+        <tr>
+          <th style="width: 3rem;"></th>
+          <th>Chore</th>
+          <th>Frequency</th>
+          <th>Priority</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>
+            {% if row.locked %}
+              <input type="checkbox" disabled {% if row.eligible %}checked{% endif %}>
+            {% else %}
+              <input type="checkbox" name="opt_in_chore_id" value="{{ row.chore.id }}" {% if row.eligible %}checked{% endif %}>
+            {% endif %}
+          </td>
+          <td>
+            <strong>{{ row.chore.name }}</strong>
+            {% if row.chore.description %}<br><small class="muted">{{ row.chore.description }}</small>{% endif %}
+          </td>
+          <td>every {{ row.chore.frequency_days }}d</td>
+          <td>{{ 'high' if row.chore.priority == 1 else 'normal' }}</td>
+          <td>
+            {% if row.locked %}
+              <small class="muted">admin-locked</small>
+            {% elif row.eligible %}
+              <small>opted in</small>
+            {% else %}
+              <small class="muted">opted out</small>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </figure>
+  <div role="group">
+    <button type="submit">Save preferences</button>
+    <a href="/me/chores/new" role="button" class="secondary outline">+ Add a new chore</a>
+  </div>
+</form>
+{% endblock %}
