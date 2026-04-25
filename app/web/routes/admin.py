@@ -248,9 +248,24 @@ async def member_toggle(
     user = await session.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=404)
-    # Don't let an admin lock themselves out.
     if user.id == admin.id and user.active:
         raise HTTPException(status_code=400, detail="Cannot deactivate yourself.")
     user.active = not user.active
+    await session.commit()
+    return RedirectResponse("/admin/members", status_code=303)
+
+
+@router.post("/members/{user_id}/toggle-admin")
+async def member_toggle_admin(
+    user_id: int,
+    admin: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    user = await session.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404)
+    if user.id == admin.id and user.is_admin:
+        raise HTTPException(status_code=400, detail="Cannot remove your own admin role.")
+    user.is_admin = not user.is_admin
     await session.commit()
     return RedirectResponse("/admin/members", status_code=303)

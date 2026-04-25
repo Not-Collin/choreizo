@@ -6,7 +6,7 @@
     <h2>Members</h2>
     <p class="muted">{{ users|length }} member{{ '' if users|length == 1 else 's' }}</p>
   </hgroup>
-  <span class="muted"><small>Invite codes coming in Phase 4.</small></span>
+  <a href="/admin/members/invite" role="button">+ Invite</a>
 </header>
 
 <figure>
@@ -39,8 +39,17 @@
         </td>
         <td>{{ u.send_time }}</td>
         <td>{{ 'yes' if u.active else 'no' }}</td>
-        <td class="row-actions" style="text-align:right;">
-          <form method="post" action="/admin/members/{{ u.id }}/toggle">
+        <td class="row-actions" style="text-align:right; white-space:nowrap;">
+          <form method="post" action="/admin/members/{{ u.id }}/toggle-admin" style="display:inline; margin:0;">
+            <button type="submit" class="{% if u.is_admin %}contrast{% else %}secondary{% endif %} outline"
+                    style="padding:0.2rem 0.6rem"
+                    {% if u.id == current_user.id and u.is_admin %}
+                      title="Cannot remove your own admin role" disabled
+                    {% endif %}>
+              {{ 'Remove admin' if u.is_admin else 'Make admin' }}
+            </button>
+          </form>
+          <form method="post" action="/admin/members/{{ u.id }}/toggle" style="display:inline; margin:0;">
             <button type="submit" class="secondary outline" style="padding:0.2rem 0.6rem">
               {{ 'Deactivate' if u.active else 'Reactivate' }}
             </button>
