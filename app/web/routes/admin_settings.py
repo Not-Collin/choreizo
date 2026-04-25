@@ -37,14 +37,20 @@ EDITABLE_KEYS = {
 
 
 async def load_db_overrides(session: AsyncSession) -> None:
-    """Read app_settings rows for editable keys and populate runtime overrides."""
-    rows = (
-        await session.execute(
-            select(AppSetting).where(AppSetting.key.in_(EDITABLE_KEYS))
-        )
-    ).scalars().all()
-    for row in rows:
-        set_runtime_override(row.key, row.value)
+    """Read app_settings rows for editable keys and populate runtime overrides.
+
+    Silently no-ops if the table doesn't exist yet (fresh install, test env).
+    """
+    try:
+        rows = (
+            await session.execute(
+                select(AppSetting).where(AppSetting.key.in_(EDITABLE_KEYS))
+            )
+        ).scalars().all()
+        for row in rows:
+            set_runtime_override(row.key, row.value)
+    except Exception:
+        pass
 
 
 def _effective(s) -> dict:

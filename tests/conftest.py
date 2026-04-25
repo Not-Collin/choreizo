@@ -7,6 +7,7 @@ DB. Each test gets a fresh `TestClient` over the same app instance.
 from __future__ import annotations
 
 import os
+import tempfile
 from collections.abc import Iterator
 
 import pytest
@@ -22,7 +23,10 @@ from sqlalchemy.ext.asyncio import (
 
 # Force a session secret + a throwaway DB path before any app modules import.
 os.environ.setdefault("SESSION_SECRET", "test-secret")
-os.environ.setdefault("DATABASE_PATH", "/tmp/choreizo-test-unused.db")
+os.environ.setdefault(
+    "DATABASE_PATH",
+    os.path.join(tempfile.gettempdir(), "choreizo-test-unused.db"),
+)
 
 from app.auth import hash_password  # noqa: E402
 from app.db import Base, get_session  # noqa: E402
