@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import get_settings
+from app.config import get_effective_str, get_settings
 from app.models import MagicLinkToken, User
 
 DEFAULT_TTL = timedelta(minutes=15)
@@ -30,7 +30,7 @@ async def mint_magic_link(
     expires = datetime.now(timezone.utc) + (ttl or DEFAULT_TTL)
     session.add(MagicLinkToken(token=token, user_id=user.id, expires_at=expires))
     await session.commit()
-    base = get_settings().base_url.rstrip("/")
+    base = get_effective_str("base_url", get_settings().base_url).rstrip("/")
     return f"{base}/auth/magic/{token}"
 
 

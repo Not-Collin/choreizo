@@ -37,6 +37,27 @@
              value="{{ form.estimated_minutes | default(chore.estimated_minutes if chore and chore.estimated_minutes else '') }}">
     </label>
   </div>
+
+  <fieldset>
+    <legend>Days of week <small class="muted">— leave all checked for "any day"</small></legend>
+    <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-top:.5rem;">
+      {% set form_days = form.getlist('allowed_weekday') if form and form.getlist is defined else [] %}
+      {% for day_num, day_name in [(0,'Mon'),(1,'Tue'),(2,'Wed'),(3,'Thu'),(4,'Fri'),(5,'Sat'),(6,'Sun')] %}
+      <label style="display:flex; align-items:center; gap:.3rem; font-weight:normal;">
+        <input type="checkbox" name="allowed_weekday" value="{{ day_num }}"
+          {% if form_days %}
+            {% if day_num|string in form_days %}checked{% endif %}
+          {% elif weekday_set is defined and weekday_set is not none %}
+            {% if day_num in weekday_set %}checked{% endif %}
+          {% else %}
+            checked
+          {% endif %}>
+        {{ day_name }}
+      </label>
+      {% endfor %}
+    </div>
+  </fieldset>
+
   <label>
     <input type="checkbox" name="enabled" value="1"
            {% if (form and form.get('enabled')) or (chore is none) or (chore and chore.enabled) %}checked{% endif %}>

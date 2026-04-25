@@ -32,7 +32,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.config import get_settings
+from app.config import get_effective_bool, get_effective_int, get_settings
 from app.models import Assignment, ReminderEvent, User
 
 
@@ -151,7 +151,11 @@ async def build_action_plan(
     now_utc: datetime | None = None,
     today_str: str,
 ) -> ActionPlan:
-    settings = get_settings()
+    s = get_settings()
+    rollover_hp = get_effective_bool("rollover_high_priority", s.rollover_high_priority)
+    reminder_interval = get_effective_int("high_priority_reminder_interval_hours", s.high_priority_reminder_interval_hours)
+    escalation_after = get_effective_int("escalation_after_hours", s.escalation_after_hours)
+    admin_notify_after = get_effective_int("admin_notify_after_hours", s.admin_notify_after_hours)
     now = now_utc or _now_utc()
     plan = ActionPlan()
 
@@ -177,7 +181,7 @@ async def build_action_plan(
 
         # 1. ROLLOVER: still pending from a prior day and high-priority.
         if (
-            settings.rollover_high_priority
+            rollover_hp
             and chore is not None
             and chore.priority == 1
             and a.assigned_date < today_str
@@ -187,7 +191,7 @@ async def build_action_plan(
 
         # 2. HOURLY REMINDER (high-priority only).
         if chore is not None and chore.priority == 1:
-            interval = max(1, settings.high_priority_reminder_interval_hours)
+            interval = max(1, reminder_interval)
             sent_count = await _hourly_reminder_count(session, a.id)
             # Each reminder represents `interval` hours of waiting; we owe
             # a fresh ping when (sent_count + 1) * interval <= age_hours.
@@ -197,7 +201,7 @@ async def build_action_plan(
         # 3. ESCALATION: only once.
         if (
             "escalation" not in kinds
-            and age_hours >= settings.escalation_after_hours
+            and age_hours >= escalation_after
         ):
             new_user = await _pick_escalation_user(session, exclude_user_id=a.user_id)
             if new_user is not None and new_user.id != a.user_id:
@@ -206,7 +210,7 @@ async def build_action_plan(
         # 4. ADMIN NOTIFY: only once, and only to an active admin.
         if (
             "admin_notify" not in kinds
-            and age_hours >= settings.admin_notify_after_hours
+            and age_hours >= admin_notify_after
             and admin is not None
         ):
             plan.admin_notifies.append(AdminNotify(assignment=a, admin=admin))

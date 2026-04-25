@@ -155,23 +155,28 @@ async def my_chore_create(
     session: AsyncSession = Depends(get_session),
 ):
     me = _require_member(user)
+    form = await request.form()
+    weekday_values = list(form.getlist("allowed_weekday"))
     if frequency_days < 1 or priority not in (0, 1):
         return templates.TemplateResponse(
             request=request,
             name="me_chore_new.html",
             context={
                 "current_user": me,
-                "form": await request.form(),
+                "form": form,
                 "error": "Frequency must be ≥ 1 day and priority must be normal or high.",
             },
             status_code=400,
         )
+    days = sorted({int(d) for d in weekday_values if d.isdigit() and 0 <= int(d) <= 6})
+    allowed_weekdays = None if len(days) == 0 or len(days) == 7 else ",".join(str(d) for d in days)
     chore = Chore(
         name=name.strip(),
         description=(description or "").strip() or None,
         frequency_days=frequency_days,
         priority=priority,
         estimated_minutes=int(estimated_minutes) if estimated_minutes else None,
+        allowed_weekdays=allowed_weekdays,
         enabled=True,
         created_by_user_id=me.id,
     )

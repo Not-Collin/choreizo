@@ -138,6 +138,10 @@ async def assign_for_date(
         last = last_dates.get(chore.id)
         if last is not None and (today - last).days < chore.frequency_days:
             continue
+        if chore.allowed_weekdays is not None:
+            allowed = {int(d) for d in chore.allowed_weekdays.split(",") if d.strip().isdigit()}
+            if today.weekday() not in allowed:
+                continue
 
         eligible = await resolve_eligible_users(session, chore)
         if not eligible:

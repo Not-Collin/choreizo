@@ -17,6 +17,8 @@ from app.auth import require_admin
 from app.config import get_settings
 from app.db import AsyncSessionLocal, get_session
 from app.models import Assignment, User
+
+_VALID_STATUSES = {"pending", "completed", "skipped", "ignored", "overdue", "escalated"}
 from app.tg.notify import chore_keyboard, chore_message_text
 
 _TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "templates"
@@ -80,6 +82,24 @@ async def _send_now_default() -> int:
 
 
 _send_now = _send_now_default
+
+
+@router.post("/assignments/{assignment_id}/status")
+async def update_assignment_status(
+    assignment_id: int,
+    status: str = Form(...),
+    admin: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    from fastapi import HTTPException
+    if status not in _VALID_STATUSES:
+        raise HTTPException(status_code=400, detail="Invalid status.")
+    a = await session.get(Assignment, assignment_id)
+    if a is None:
+        raise HTTPException(status_code=404)
+    a.status = status
+    await session.commit()
+    return RedirectResponse("/admin/assignments", status_code=303)
 
 
 @router.post("/run-assignment")

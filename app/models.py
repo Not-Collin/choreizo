@@ -108,6 +108,7 @@ class Chore(Base):
     frequency_days: Mapped[int] = mapped_column(Integer, nullable=False)
     priority: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     estimated_minutes: Mapped[int | None] = mapped_column(Integer)
+    allowed_weekdays: Mapped[str | None] = mapped_column(String(13), nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(

@@ -72,6 +72,13 @@ async def chore_new_form(
     )
 
 
+def _parse_weekdays(values: list[str]) -> str | None:
+    days = sorted({int(d) for d in values if d.isdigit() and 0 <= int(d) <= 6})
+    if len(days) == 0 or len(days) == 7:
+        return None
+    return ",".join(str(d) for d in days)
+
+
 def _parse_chore_form(
     name: str,
     description: str | None,
@@ -79,6 +86,7 @@ def _parse_chore_form(
     priority: int,
     estimated_minutes: str | None,
     enabled: str | None,
+    allowed_weekday_values: list[str] | None = None,
 ) -> dict:
     if frequency_days < 1:
         raise ValueError("Frequency must be at least 1 day.")
@@ -91,6 +99,7 @@ def _parse_chore_form(
         "priority": priority,
         "estimated_minutes": int(estimated_minutes) if estimated_minutes else None,
         "enabled": enabled is not None,
+        "allowed_weekdays": _parse_weekdays(allowed_weekday_values or []),
     }
 
 
@@ -106,9 +115,12 @@ async def chore_create(
     admin: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
+    form = await request.form()
+    weekday_values = list(form.getlist("allowed_weekday"))
     try:
         fields = _parse_chore_form(
-            name, description, frequency_days, priority, estimated_minutes, enabled
+            name, description, frequency_days, priority, estimated_minutes, enabled,
+            weekday_values,
         )
     except ValueError as e:
         return templates.TemplateResponse(
@@ -117,7 +129,7 @@ async def chore_create(
             context={
                 "current_user": admin,
                 "chore": None,
-                "form": await request.form(),
+                "form": form,
                 "error": str(e),
             },
             status_code=400,
@@ -138,10 +150,14 @@ async def chore_edit_form(
     chore = await session.get(Chore, chore_id)
     if chore is None:
         raise HTTPException(status_code=404)
+    weekday_set = (
+        {int(d) for d in chore.allowed_weekdays.split(",") if d.strip().isdigit()}
+        if chore.allowed_weekdays else None
+    )
     return templates.TemplateResponse(
         request=request,
         name="admin/chore_form.html",
-        context={"current_user": admin, "chore": chore, "form": {}},
+        context={"current_user": admin, "chore": chore, "form": {}, "weekday_set": weekday_set},
     )
 
 
@@ -161,9 +177,12 @@ async def chore_update(
     chore = await session.get(Chore, chore_id)
     if chore is None:
         raise HTTPException(status_code=404)
+    form = await request.form()
+    weekday_values = list(form.getlist("allowed_weekday"))
     try:
         fields = _parse_chore_form(
-            name, description, frequency_days, priority, estimated_minutes, enabled
+            name, description, frequency_days, priority, estimated_minutes, enabled,
+            weekday_values,
         )
     except ValueError as e:
         return templates.TemplateResponse(
@@ -172,7 +191,7 @@ async def chore_update(
             context={
                 "current_user": admin,
                 "chore": chore,
-                "form": await request.form(),
+                "form": form,
                 "error": str(e),
             },
             status_code=400,

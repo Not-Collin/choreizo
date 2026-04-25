@@ -48,6 +48,9 @@ async def _bootstrap_admin() -> None:
 async def lifespan(app: FastAPI):
     log.info("Choreizo %s starting up", __version__)
     await _bootstrap_admin()
+    from app.web.routes.admin_settings import load_db_overrides
+    async with AsyncSessionLocal() as _s:
+        await load_db_overrides(_s)
     from app.scheduler import build_scheduler, clear_active_bot, set_active_bot
     from app.tg.bot import build_application, start_polling, stop_polling
 

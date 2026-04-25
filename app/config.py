@@ -7,6 +7,43 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# ---------------------------------------------------------------------------
+# Runtime overrides — populated from app_settings table at startup and
+# updated when an admin saves settings from the web UI. These shadow the
+# env-derived Settings values without requiring a container restart.
+# ---------------------------------------------------------------------------
+
+_db_overrides: dict[str, str] = {}
+
+
+def set_runtime_override(key: str, value: str) -> None:
+    _db_overrides[key] = value
+
+
+def clear_runtime_overrides() -> None:
+    _db_overrides.clear()
+
+
+def get_effective_str(key: str, default: str) -> str:
+    return _db_overrides.get(key, default)
+
+
+def get_effective_int(key: str, default: int) -> int:
+    val = _db_overrides.get(key)
+    if val is not None:
+        try:
+            return int(val)
+        except (ValueError, TypeError):
+            pass
+    return default
+
+
+def get_effective_bool(key: str, default: bool) -> bool:
+    val = _db_overrides.get(key)
+    if val is not None:
+        return val.lower() in ("1", "true", "yes")
+    return default
+
 
 class Settings(BaseSettings):
     """All runtime config for Choreizo.
