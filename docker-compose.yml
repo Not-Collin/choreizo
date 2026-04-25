@@ -1,7 +1,6 @@
 services:
   choreizo:
-    build: .
-    image: choreizo:latest
+    image: ghcr.io/not-collin/choreizo:latest
     container_name: choreizo
     restart: unless-stopped
     env_file:
