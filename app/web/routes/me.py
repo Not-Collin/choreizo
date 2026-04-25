@@ -2,18 +2,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.auth import get_current_user
+from app.config import get_effective_str, get_settings
 from app.db import get_session
 from app.eligibility import get_eligibility_map, set_member_optin
-from app.models import Chore, User
+from app.models import Assignment, Chore, User
 
 _TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
@@ -29,10 +33,26 @@ def _require_member(user: User | None) -> User:
 
 @router.get("", response_class=HTMLResponse)
 @router.get("/", response_class=HTMLResponse)
-async def me_home(request: Request, user: User | None = Depends(get_current_user)):
+async def me_home(
+    request: Request,
+    user: User | None = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
     me = _require_member(user)
+    tz = ZoneInfo(get_effective_str("house_timezone", get_settings().house_timezone))
+    today = datetime.now(tz).date().isoformat()
+    today_assignments = (
+        await session.execute(
+            select(Assignment)
+            .where(Assignment.user_id == me.id, Assignment.assigned_date == today)
+            .options(selectinload(Assignment.chore))
+            .order_by(Assignment.id)
+        )
+    ).scalars().all()
     return templates.TemplateResponse(
-        request=request, name="me.html", context={"current_user": me}
+        request=request,
+        name="me.html",
+        context={"current_user": me, "today": today, "today_assignments": today_assignments},
     )
 
 

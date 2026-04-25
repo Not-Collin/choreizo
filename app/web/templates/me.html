@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}My chores — Choreizo{% endblock %}
+{% block title %}My dashboard — Choreizo{% endblock %}
 {% block content %}
 <hgroup>
   <h2>Welcome, {{ current_user.name }}</h2>
@@ -7,20 +7,48 @@
     {% if current_user.telegram_chat_id %}
       Linked to Telegram{% if current_user.telegram_username %} as @{{ current_user.telegram_username }}{% endif %}.
     {% else %}
-      Not yet linked to Telegram.
+      Not yet linked to Telegram — message the bot <code>/start &lt;invite code&gt;</code> to link your account.
     {% endif %}
   </p>
 </hgroup>
 
 <article>
-  <h3>Today</h3>
-  <p class="muted">Daily chore assignments arrive in Phase 6. For now, this is just a placeholder.</p>
+  <header style="display:flex; align-items:center; justify-content:space-between;">
+    <strong>Today's chores</strong>
+    <small class="muted">{{ today }}</small>
+  </header>
+  {% if today_assignments %}
+    <table class="compact striped">
+      <thead><tr><th>Chore</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for a in today_assignments %}
+        <tr>
+          <td><strong>{{ a.chore.name }}</strong>{% if a.chore.priority == 1 %} <small>⚠ high</small>{% endif %}</td>
+          <td>
+            {% if a.status == 'completed' %}✅ Done
+            {% elif a.status == 'skipped' %}⏭ Skipped
+            {% elif a.status == 'ignored' %}🙈 Ignored
+            {% elif a.status == 'overdue' %}<strong>⏰ Overdue</strong>
+            {% else %}⏳ Pending{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <small class="muted">Use the Telegram bot to mark chores done, skip, or ignore.</small>
+  {% else %}
+    <p class="muted">No chores assigned to you today.</p>
+  {% endif %}
 </article>
 
 <article>
-  <h3>My chores</h3>
-  <p class="muted">
-    The Phase 5 update will list every chore here as a checkbox so you can opt in or out individually.
-  </p>
+  <header style="display:flex; align-items:center; justify-content:space-between;">
+    <strong>My chores</strong>
+    <div role="group" style="margin:0">
+      <a href="/me/chores/new" role="button" class="secondary outline" style="padding:0.25rem 0.75rem">+ Add chore</a>
+      <a href="/me/chores" role="button" class="outline" style="padding:0.25rem 0.75rem">Manage</a>
+    </div>
+  </header>
+  <p class="muted">Use <strong>Manage</strong> to opt in or out of chores. Use <strong>+ Add chore</strong> to add a new chore to the household.</p>
 </article>
 {% endblock %}

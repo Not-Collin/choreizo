@@ -30,7 +30,9 @@
             <li><a href="/admin/stats">Stats</a></li>
             <li><a href="/admin/settings">Settings</a></li>
           {% else %}
-            <li><a href="/me">My chores</a></li>
+            <li><a href="/me">Today</a></li>
+            <li><a href="/me/chores">My chores</a></li>
+            <li><a href="/me/chores/new">+ Add chore</a></li>
           {% endif %}
           <li class="muted">{{ current_user.name }}</li>
           <li>
