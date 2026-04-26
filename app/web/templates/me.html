@@ -12,6 +12,23 @@
   </p>
 </hgroup>
 
+{# ── Quick stats ── #}
+<div style="display:flex; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap;">
+  <article style="flex:1; min-width:120px; margin:0; text-align:center;">
+    <strong style="font-size:1.8rem;">{{ done_count }}</strong>
+    <p class="muted" style="margin:0; font-size:0.85rem;">done this month</p>
+  </article>
+  <article style="flex:1; min-width:120px; margin:0; text-align:center;">
+    <strong style="font-size:1.8rem;">{{ skipped_count }}</strong>
+    <p class="muted" style="margin:0; font-size:0.85rem;">skipped this month</p>
+  </article>
+  <article style="flex:1; min-width:120px; margin:0; text-align:center;">
+    <strong style="font-size:1.8rem;">{{ today_assignments|length }}</strong>
+    <p class="muted" style="margin:0; font-size:0.85rem;">assigned today</p>
+  </article>
+</div>
+
+{# ── Today's chores ── #}
 <article>
   <header style="display:flex; align-items:center; justify-content:space-between;">
     <strong>Today's chores</strong>
@@ -19,11 +36,17 @@
   </header>
   {% if today_assignments %}
     <table class="compact striped">
-      <thead><tr><th>Chore</th><th>Status</th></tr></thead>
+      <thead>
+        <tr><th>Chore</th><th>Status</th><th style="text-align:right">Actions</th></tr>
+      </thead>
       <tbody>
         {% for a in today_assignments %}
         <tr>
-          <td><strong>{{ a.chore.name }}</strong>{% if a.chore.priority == 1 %} <small>⚠ high</small>{% endif %}</td>
+          <td>
+            <strong>{{ a.chore.name }}</strong>
+            {% if a.chore.priority == 1 %}<small> ⚠ high</small>{% endif %}
+            {% if a.chore.estimated_minutes %}<br><small class="muted">~{{ a.chore.estimated_minutes }} min</small>{% endif %}
+          </td>
           <td>
             {% if a.status == 'completed' %}✅ Done
             {% elif a.status == 'skipped' %}⏭ Skipped
@@ -31,16 +54,79 @@
             {% elif a.status == 'overdue' %}<strong>⏰ Overdue</strong>
             {% else %}⏳ Pending{% endif %}
           </td>
+          <td style="text-align:right; white-space:nowrap;">
+            {% if a.status in ('pending', 'overdue') %}
+              <form method="post" action="/me/assignments/{{ a.id }}/done" style="display:inline; margin:0;">
+                <button type="submit" style="padding:0.2rem 0.6rem; font-size:0.85rem;">✅ Done</button>
+              </form>
+              <form method="post" action="/me/assignments/{{ a.id }}/skip" style="display:inline; margin:0;">
+                <button type="submit" class="secondary outline" style="padding:0.2rem 0.6rem; font-size:0.85rem;">⏭ Skip</button>
+              </form>
+              <form method="post" action="/me/assignments/{{ a.id }}/ignore" style="display:inline; margin:0;">
+                <button type="submit" class="contrast outline" style="padding:0.2rem 0.6rem; font-size:0.85rem;">🙈 Ignore</button>
+              </form>
+            {% else %}
+              <span class="muted" style="font-size:0.85rem;">—</span>
+            {% endif %}
+          </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
-    <small class="muted">Use the Telegram bot to mark chores done, skip, or ignore.</small>
   {% else %}
-    <p class="muted">No chores assigned to you today.</p>
+    <p class="muted">No chores assigned to you today. 🎉</p>
   {% endif %}
 </article>
 
+{# ── Upcoming ── #}
+{% if upcoming %}
+<article>
+  <header><strong>Coming up (next 7 days)</strong></header>
+  <table class="compact striped">
+    <thead><tr><th>Chore</th><th>Expected</th></tr></thead>
+    <tbody>
+      {% for row in upcoming %}
+      <tr>
+        <td>{{ row.chore.name }}{% if row.chore.priority == 1 %} <small>⚠</small>{% endif %}</td>
+        <td>
+          {% if row.next_due == today %}
+            <span class="muted">today</span>
+          {% else %}
+            {{ row.next_due }}
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</article>
+{% endif %}
+
+{# ── Recent history ── #}
+{% if recent %}
+<article>
+  <header><strong>Recent activity</strong></header>
+  <table class="compact striped">
+    <thead><tr><th>Date</th><th>Chore</th><th>Result</th></tr></thead>
+    <tbody>
+      {% for a in recent %}
+      <tr>
+        <td class="muted"><small>{{ a.assigned_date }}</small></td>
+        <td>{{ a.chore.name }}</td>
+        <td>
+          {% if a.status == 'completed' %}✅
+          {% elif a.status == 'skipped' %}⏭
+          {% elif a.status == 'ignored' %}🙈
+          {% else %}{{ a.status }}{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</article>
+{% endif %}
+
+{# ── My chores card ── #}
 <article>
   <header style="display:flex; align-items:center; justify-content:space-between;">
     <strong>My chores</strong>

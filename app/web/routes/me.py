@@ -2,14 +2,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -24,11 +24,17 @@ templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
 
 router = APIRouter(prefix="/me", tags=["member"])
 
+_ACTION_TO_STATUS = {"done": "completed", "skip": "skipped", "ignore": "ignored"}
+
 
 def _require_member(user: User | None) -> User:
     if user is None or not user.active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
     return user
+
+
+def _tz() -> ZoneInfo:
+    return ZoneInfo(get_effective_str("house_timezone", get_settings().house_timezone))
 
 
 @router.get("", response_class=HTMLResponse)
@@ -39,21 +45,150 @@ async def me_home(
     session: AsyncSession = Depends(get_session),
 ):
     me = _require_member(user)
-    tz = ZoneInfo(get_effective_str("house_timezone", get_settings().house_timezone))
-    today = datetime.now(tz).date().isoformat()
+    tz = _tz()
+    today = datetime.now(tz).date()
+    today_str = today.isoformat()
+
     today_assignments = (
         await session.execute(
             select(Assignment)
-            .where(Assignment.user_id == me.id, Assignment.assigned_date == today)
+            .where(Assignment.user_id == me.id, Assignment.assigned_date == today_str)
             .options(selectinload(Assignment.chore))
             .order_by(Assignment.id)
         )
     ).scalars().all()
+
+    # Recent history — last 10 completed/skipped/ignored assignments (not today)
+    recent = (
+        await session.execute(
+            select(Assignment)
+            .where(
+                Assignment.user_id == me.id,
+                Assignment.assigned_date < today_str,
+                Assignment.status.in_(["completed", "skipped", "ignored"]),
+            )
+            .options(selectinload(Assignment.chore))
+            .order_by(Assignment.assigned_date.desc(), Assignment.id.desc())
+            .limit(10)
+        )
+    ).scalars().all()
+
+    # Upcoming chores — due within 7 days
+    upcoming = await _upcoming_chores(session, me, today)
+
+    # Quick stats — this calendar month
+    month_start = today.replace(day=1).isoformat()
+    done_count = (
+        await session.execute(
+            select(func.count()).where(
+                Assignment.user_id == me.id,
+                Assignment.assigned_date >= month_start,
+                Assignment.status == "completed",
+            )
+        )
+    ).scalar_one()
+    skipped_count = (
+        await session.execute(
+            select(func.count()).where(
+                Assignment.user_id == me.id,
+                Assignment.assigned_date >= month_start,
+                Assignment.status == "skipped",
+            )
+        )
+    ).scalar_one()
+
     return templates.TemplateResponse(
         request=request,
         name="me.html",
-        context={"current_user": me, "today": today, "today_assignments": today_assignments},
+        context={
+            "current_user": me,
+            "today": today_str,
+            "today_assignments": today_assignments,
+            "recent": recent,
+            "upcoming": upcoming,
+            "done_count": done_count,
+            "skipped_count": skipped_count,
+        },
     )
+
+
+async def _upcoming_chores(
+    session: AsyncSession,
+    me: User,
+    today: date,
+    horizon_days: int = 7,
+) -> list[dict]:
+    """Return chores likely due in the next horizon_days, sorted by expected date."""
+    horizon = today + timedelta(days=horizon_days)
+
+    chores = (
+        await session.execute(
+            select(Chore).where(Chore.enabled.is_(True)).order_by(Chore.name)
+        )
+    ).scalars().all()
+
+    # Latest assignment date per chore for this user
+    latest_rows = (
+        await session.execute(
+            select(Assignment.chore_id, func.max(Assignment.assigned_date))
+            .where(Assignment.user_id == me.id)
+            .group_by(Assignment.chore_id)
+        )
+    ).all()
+    latest_by_chore: dict[int, str | None] = {chore_id: last for chore_id, last in latest_rows}
+
+    upcoming = []
+    for chore in chores:
+        last = latest_by_chore.get(chore.id)
+        if last:
+            next_due = date.fromisoformat(last) + timedelta(days=chore.frequency_days)
+        else:
+            next_due = today
+
+        if next_due > horizon:
+            continue
+        if next_due < today:
+            next_due = today
+
+        # Advance to the nearest allowed weekday within the window
+        if chore.allowed_weekdays:
+            allowed = {int(d) for d in chore.allowed_weekdays.split(",") if d.strip().isdigit()}
+            candidate = next_due
+            for _ in range(horizon_days + 1):
+                if candidate.weekday() in allowed:
+                    next_due = candidate
+                    break
+                candidate += timedelta(days=1)
+            else:
+                continue  # no allowed day in window
+
+        upcoming.append({"chore": chore, "next_due": next_due.isoformat()})
+
+    upcoming.sort(key=lambda x: x["next_due"])
+    return upcoming
+
+
+@router.post("/assignments/{assignment_id}/{action}")
+async def assignment_action(
+    assignment_id: int,
+    action: str,
+    user: User | None = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    me = _require_member(user)
+    if action not in _ACTION_TO_STATUS:
+        raise HTTPException(status_code=400, detail="Invalid action")
+    a = await session.get(Assignment, assignment_id)
+    if a is None or a.user_id != me.id:
+        raise HTTPException(status_code=404)
+    if a.status in ("pending", "overdue"):
+        now = datetime.now(timezone.utc)
+        a.status = _ACTION_TO_STATUS[action]
+        a.responded_at = now
+        if action == "done":
+            a.completed_at = now
+        await session.commit()
+    return RedirectResponse("/me", status_code=303)
 
 
 @dataclass
@@ -86,12 +221,7 @@ async def _build_chore_rows(
         my_mode = eligibility.get(me.id)
 
         if any_allow:
-            # Allow-list mode — admin owns membership.
             eligible = my_mode == "allow"
-            locked = my_mode != "allow"  # Member can flip OFF their own allow? No, locked.
-            # Actually: the member should be able to opt out even from an allow
-            # list. But Phase 5 keeps members read-only when in allow-list mode
-            # to match the docstring. The admin editor is the escape hatch.
             locked = True
         else:
             eligible = my_mode != "deny"
