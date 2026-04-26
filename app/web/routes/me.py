@@ -150,12 +150,29 @@ async def _upcoming_chores(
         if next_due < today:
             next_due = today
 
+        # Month filter: advance next_due into the first allowed month if needed
+        if chore.allowed_months:
+            allowed_m = {int(m) for m in chore.allowed_months.split(",") if m.strip().isdigit()}
+            # Walk day by day until we hit an allowed month or exceed horizon
+            candidate = next_due
+            while candidate.month not in allowed_m:
+                # Jump to first day of next month
+                if candidate.month == 12:
+                    candidate = candidate.replace(year=candidate.year + 1, month=1, day=1)
+                else:
+                    candidate = candidate.replace(month=candidate.month + 1, day=1)
+                if candidate > horizon:
+                    break
+            if candidate > horizon:
+                continue
+            next_due = candidate
+
         # Advance to the nearest allowed weekday within the window
         if chore.allowed_weekdays:
-            allowed = {int(d) for d in chore.allowed_weekdays.split(",") if d.strip().isdigit()}
+            allowed_w = {int(d) for d in chore.allowed_weekdays.split(",") if d.strip().isdigit()}
             candidate = next_due
             for _ in range(horizon_days + 1):
-                if candidate.weekday() in allowed:
+                if candidate.weekday() in allowed_w:
                     next_due = candidate
                     break
                 candidate += timedelta(days=1)
@@ -307,6 +324,7 @@ async def my_chore_create(
     me = _require_member(user)
     form = await request.form()
     weekday_values = list(form.getlist("allowed_weekday"))
+    month_values = list(form.getlist("allowed_month"))
     if frequency_days < 1 or priority not in (0, 1):
         return templates.TemplateResponse(
             request=request,
@@ -320,6 +338,8 @@ async def my_chore_create(
         )
     days = sorted({int(d) for d in weekday_values if d.isdigit() and 0 <= int(d) <= 6})
     allowed_weekdays = None if len(days) == 0 or len(days) == 7 else ",".join(str(d) for d in days)
+    months = sorted({int(m) for m in month_values if m.isdigit() and 1 <= int(m) <= 12})
+    allowed_months = None if len(months) == 0 or len(months) == 12 else ",".join(str(m) for m in months)
     chore = Chore(
         name=name.strip(),
         description=(description or "").strip() or None,
@@ -327,6 +347,7 @@ async def my_chore_create(
         priority=priority,
         estimated_minutes=int(estimated_minutes) if estimated_minutes else None,
         allowed_weekdays=allowed_weekdays,
+        allowed_months=allowed_months,
         enabled=True,
         created_by_user_id=me.id,
     )
