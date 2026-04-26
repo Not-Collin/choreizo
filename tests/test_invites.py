@@ -193,7 +193,7 @@ def test_magic_link_endpoint_logs_user_in(client: TestClient, db_factory) -> Non
 
     me = client.get("/me")
     assert me.status_code == 200
-    assert "Welcome, Member" in me.text
+    assert "Member" in me.text
 
 
 def test_magic_link_invalid_token_shows_error(client: TestClient) -> None:

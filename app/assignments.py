@@ -142,6 +142,10 @@ async def assign_for_date(
             allowed = {int(d) for d in chore.allowed_weekdays.split(",") if d.strip().isdigit()}
             if today.weekday() not in allowed:
                 continue
+        if chore.allowed_months is not None:
+            allowed = {int(m) for m in chore.allowed_months.split(",") if m.strip().isdigit()}
+            if today.month not in allowed:
+                continue
 
         eligible = await resolve_eligible_users(session, chore)
         if not eligible:

@@ -1,72 +1,67 @@
 {% extends "base.html" %}
 {% block title %}My dashboard — Choreizo{% endblock %}
 {% block content %}
-<hgroup>
-  <h2>Welcome, {{ current_user.name }}</h2>
-  <p class="muted">
-    {% if current_user.telegram_chat_id %}
-      Linked to Telegram{% if current_user.telegram_username %} as @{{ current_user.telegram_username }}{% endif %}.
-    {% else %}
-      Not yet linked to Telegram — message the bot <code>/start &lt;invite code&gt;</code> to link your account.
-    {% endif %}
-  </p>
-</hgroup>
+<div class="page-header">
+  <hgroup>
+    <h2>{{ current_user.name }}</h2>
+    <p class="muted">
+      {% if current_user.telegram_chat_id %}
+        Telegram{% if current_user.telegram_username %}: @{{ current_user.telegram_username }}{% endif %}
+      {% else %}
+        Telegram not linked
+      {% endif %}
+    </p>
+  </hgroup>
+  <div role="group" style="margin:0">
+    <a href="/me/chores/new" role="button" class="secondary outline" style="padding:0.2rem 0.65rem; font-size:0.85rem">+ Add chore</a>
+    <a href="/me/chores" role="button" class="outline" style="padding:0.2rem 0.65rem; font-size:0.85rem">Manage</a>
+  </div>
+</div>
 
 {# ── Quick stats ── #}
-<div style="display:flex; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap;">
-  <article style="flex:1; min-width:120px; margin:0; text-align:center;">
-    <strong style="font-size:1.8rem;">{{ done_count }}</strong>
-    <p class="muted" style="margin:0; font-size:0.85rem;">done this month</p>
-  </article>
-  <article style="flex:1; min-width:120px; margin:0; text-align:center;">
-    <strong style="font-size:1.8rem;">{{ skipped_count }}</strong>
-    <p class="muted" style="margin:0; font-size:0.85rem;">skipped this month</p>
-  </article>
-  <article style="flex:1; min-width:120px; margin:0; text-align:center;">
-    <strong style="font-size:1.8rem;">{{ today_assignments|length }}</strong>
-    <p class="muted" style="margin:0; font-size:0.85rem;">assigned today</p>
-  </article>
+<div class="stat-strip">
+  <div class="stat"><strong>{{ done_count }}</strong><span>done this month</span></div>
+  <div class="stat"><strong>{{ skipped_count }}</strong><span>skipped</span></div>
+  <div class="stat"><strong>{{ today_assignments|length }}</strong><span>today</span></div>
 </div>
 
 {# ── Today's chores ── #}
 <article>
   <header style="display:flex; align-items:center; justify-content:space-between;">
-    <strong>Today's chores</strong>
+    <strong>Today</strong>
     <small class="muted">{{ today }}</small>
   </header>
   {% if today_assignments %}
     <table class="compact striped">
       <thead>
-        <tr><th>Chore</th><th>Status</th><th style="text-align:right">Actions</th></tr>
+        <tr><th>Chore</th><th>Status</th><th></th></tr>
       </thead>
       <tbody>
         {% for a in today_assignments %}
         <tr>
           <td>
-            <strong>{{ a.chore.name }}</strong>
-            {% if a.chore.priority == 1 %}<small> ⚠ high</small>{% endif %}
-            {% if a.chore.estimated_minutes %}<br><small class="muted">~{{ a.chore.estimated_minutes }} min</small>{% endif %}
+            {{ a.chore.name }}
+            {% if a.chore.priority == 1 %}<small class="muted"> ⚠</small>{% endif %}
+            {% if a.chore.estimated_minutes %}<small class="muted"> · {{ a.chore.estimated_minutes }}m</small>{% endif %}
           </td>
           <td>
-            {% if a.status == 'completed' %}✅ Done
-            {% elif a.status == 'skipped' %}⏭ Skipped
-            {% elif a.status == 'ignored' %}🙈 Ignored
-            {% elif a.status == 'overdue' %}<strong>⏰ Overdue</strong>
-            {% else %}⏳ Pending{% endif %}
+            {% if a.status == 'completed' %}<span style="color:var(--pico-ins-color, green)">✓ done</span>
+            {% elif a.status == 'skipped' %}<span class="muted">skipped</span>
+            {% elif a.status == 'ignored' %}<span class="muted">ignored</span>
+            {% elif a.status == 'overdue' %}<strong style="color:var(--pico-del-color, red)">overdue</strong>
+            {% else %}<span class="muted">pending</span>{% endif %}
           </td>
           <td style="text-align:right; white-space:nowrap;">
             {% if a.status in ('pending', 'overdue') %}
               <form method="post" action="/me/assignments/{{ a.id }}/done" style="display:inline; margin:0;">
-                <button type="submit" style="padding:0.2rem 0.6rem; font-size:0.85rem;">✅ Done</button>
+                <button type="submit" title="Mark done" style="padding:0.15rem 0.55rem; font-size:0.8rem; margin:0 0.1rem;">✓</button>
               </form>
               <form method="post" action="/me/assignments/{{ a.id }}/skip" style="display:inline; margin:0;">
-                <button type="submit" class="secondary outline" style="padding:0.2rem 0.6rem; font-size:0.85rem;">⏭ Skip</button>
+                <button type="submit" title="Skip" class="secondary outline" style="padding:0.15rem 0.55rem; font-size:0.8rem; margin:0 0.1rem;">skip</button>
               </form>
               <form method="post" action="/me/assignments/{{ a.id }}/ignore" style="display:inline; margin:0;">
-                <button type="submit" class="contrast outline" style="padding:0.2rem 0.6rem; font-size:0.85rem;">🙈 Ignore</button>
+                <button type="submit" title="Ignore" class="contrast outline" style="padding:0.15rem 0.55rem; font-size:0.8rem; margin:0 0.1rem;">ignore</button>
               </form>
-            {% else %}
-              <span class="muted" style="font-size:0.85rem;">—</span>
             {% endif %}
           </td>
         </tr>
@@ -74,26 +69,25 @@
       </tbody>
     </table>
   {% else %}
-    <p class="muted">No chores assigned to you today. 🎉</p>
+    <p class="muted" style="margin:0">Nothing assigned today.</p>
   {% endif %}
 </article>
 
-{# ── Upcoming ── #}
+{# ── Upcoming + Recent side by side when both present ── #}
+{% if upcoming or recent %}
+<div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem; align-items:start;">
+
 {% if upcoming %}
-<article>
-  <header><strong>Coming up (next 7 days)</strong></header>
+<article style="margin:0">
+  <header><strong>Coming up</strong> <small class="muted">next 7 days</small></header>
   <table class="compact striped">
-    <thead><tr><th>Chore</th><th>Expected</th></tr></thead>
     <tbody>
       {% for row in upcoming %}
       <tr>
-        <td>{{ row.chore.name }}{% if row.chore.priority == 1 %} <small>⚠</small>{% endif %}</td>
-        <td>
-          {% if row.next_due == today %}
-            <span class="muted">today</span>
-          {% else %}
-            {{ row.next_due }}
-          {% endif %}
+        <td>{{ row.chore.name }}{% if row.chore.priority == 1 %} <small class="muted">⚠</small>{% endif %}</td>
+        <td class="muted" style="text-align:right; white-space:nowrap;">
+          {% if row.next_due == today %}today
+          {% else %}{{ row.next_due }}{% endif %}
         </td>
       </tr>
       {% endfor %}
@@ -102,22 +96,20 @@
 </article>
 {% endif %}
 
-{# ── Recent history ── #}
 {% if recent %}
-<article>
-  <header><strong>Recent activity</strong></header>
+<article style="margin:0">
+  <header><strong>Recent</strong></header>
   <table class="compact striped">
-    <thead><tr><th>Date</th><th>Chore</th><th>Result</th></tr></thead>
     <tbody>
       {% for a in recent %}
       <tr>
-        <td class="muted"><small>{{ a.assigned_date }}</small></td>
         <td>{{ a.chore.name }}</td>
-        <td>
-          {% if a.status == 'completed' %}✅
-          {% elif a.status == 'skipped' %}⏭
-          {% elif a.status == 'ignored' %}🙈
+        <td class="muted" style="text-align:right; white-space:nowrap; font-size:0.8rem;">
+          {% if a.status == 'completed' %}<span style="color:var(--pico-ins-color,green)">✓</span>
+          {% elif a.status == 'skipped' %}skip
+          {% elif a.status == 'ignored' %}ign
           {% else %}{{ a.status }}{% endif %}
+          &nbsp;{{ a.assigned_date[5:] }}
         </td>
       </tr>
       {% endfor %}
@@ -126,15 +118,6 @@
 </article>
 {% endif %}
 
-{# ── My chores card ── #}
-<article>
-  <header style="display:flex; align-items:center; justify-content:space-between;">
-    <strong>My chores</strong>
-    <div role="group" style="margin:0">
-      <a href="/me/chores/new" role="button" class="secondary outline" style="padding:0.25rem 0.75rem">+ Add chore</a>
-      <a href="/me/chores" role="button" class="outline" style="padding:0.25rem 0.75rem">Manage</a>
-    </div>
-  </header>
-  <p class="muted">Use <strong>Manage</strong> to opt in or out of chores. Use <strong>+ Add chore</strong> to add a new chore to the household.</p>
-</article>
+</div>
+{% endif %}
 {% endblock %}

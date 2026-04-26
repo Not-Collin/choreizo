@@ -58,6 +58,26 @@
     </div>
   </fieldset>
 
+  <fieldset>
+    <legend>Months <small class="muted">— leave all checked for "any month"</small></legend>
+    <div style="display:grid; grid-template-columns: repeat(6, auto); gap:.4rem .8rem; margin-top:.5rem; width:fit-content;">
+      {% set form_months = form.getlist('allowed_month') if form and form.getlist is defined else [] %}
+      {% for m_num, m_name in [(1,'Jan'),(2,'Feb'),(3,'Mar'),(4,'Apr'),(5,'May'),(6,'Jun'),(7,'Jul'),(8,'Aug'),(9,'Sep'),(10,'Oct'),(11,'Nov'),(12,'Dec')] %}
+      <label style="display:flex; align-items:center; gap:.3rem; font-weight:normal;">
+        <input type="checkbox" name="allowed_month" value="{{ m_num }}"
+          {% if form_months %}
+            {% if m_num|string in form_months %}checked{% endif %}
+          {% elif month_set is defined and month_set is not none %}
+            {% if m_num in month_set %}checked{% endif %}
+          {% else %}
+            checked
+          {% endif %}>
+        {{ m_name }}
+      </label>
+      {% endfor %}
+    </div>
+  </fieldset>
+
   <label>
     <input type="checkbox" name="enabled" value="1"
            {% if (form and form.get('enabled')) or (chore is none) or (chore and chore.enabled) %}checked{% endif %}>
