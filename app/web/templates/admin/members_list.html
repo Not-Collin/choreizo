@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% block title %}Members — Choreizo{% endblock %}
 {% block content %}
-<header style="display:flex; align-items:center; justify-content:space-between;">
+<div class="page-header">
   <hgroup>
     <h2>Members</h2>
     <p class="muted">{{ users|length }} member{{ '' if users|length == 1 else 's' }}</p>
   </hgroup>
-  <a href="/admin/members/invite" role="button">+ Invite</a>
-</header>
+  <a href="/admin/members/invite" role="button" style="font-size:0.85rem; padding:0.2rem 0.65rem;">+ Invite</a>
+</div>
 
 <figure>
   <table class="compact striped">

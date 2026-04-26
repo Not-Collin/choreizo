@@ -6,13 +6,43 @@
   <title>{% block title %}{{ app_name | default("Choreizo") }}{% endblock %}</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
   <style>
-    nav.app-nav { margin-bottom: 1.5rem; }
+    /* ── Density ── */
+    :root { --pico-spacing: 0.875rem; --pico-font-size: 15px; }
+    h1 { font-size: 1.4rem; }
+    h2 { font-size: 1.15rem; margin-bottom: 0.2rem; }
+    h3 { font-size: 1rem; margin-bottom: 0.2rem; }
+    hgroup { margin-bottom: 0.75rem; }
+    hgroup > p { font-size: 0.85rem; margin-bottom: 0; }
+
+    /* ── Cards ── */
+    article { padding: 0.875rem 1.1rem; margin-bottom: 1rem; }
+    article > header { padding-bottom: 0.6rem; margin-bottom: 0.6rem; border-bottom: 1px solid var(--pico-muted-border-color); }
+    article > footer { padding-top: 0.6rem; margin-top: 0.6rem; }
+
+    /* ── Nav ── */
+    nav.app-nav { margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--pico-muted-border-color); }
+    nav.app-nav li, nav.app-nav li a { font-size: 0.85rem; }
+    nav.app-nav ul { margin-bottom: 0; }
+
+    /* ── Tables ── */
+    table.compact td, table.compact th { padding: 0.35rem 0.55rem; font-size: 0.875rem; }
+    figure { margin: 0 0 1rem; }
+
+    /* ── Utilities ── */
     .muted { color: var(--pico-muted-color); }
-    .flash { padding: 0.75rem 1rem; border-radius: var(--pico-border-radius); margin-bottom: 1rem; }
+    .flash { padding: 0.5rem 0.875rem; border-radius: var(--pico-border-radius); margin-bottom: 0.875rem; font-size: 0.875rem; }
     .flash.error { background: var(--pico-del-color, #ffe5e5); }
     .flash.ok    { background: var(--pico-ins-color, #e5ffe5); }
-    table.compact td, table.compact th { padding: 0.4rem 0.6rem; }
     .row-actions form { display: inline; margin: 0; }
+
+    /* ── Stat strip ── */
+    .stat-strip { display: flex; gap: 1.25rem; align-items: baseline; font-size: 0.85rem; color: var(--pico-muted-color); margin-bottom: 1rem; flex-wrap: wrap; }
+    .stat-strip .stat { display: flex; flex-direction: column; align-items: center; }
+    .stat-strip .stat strong { font-size: 1.5rem; line-height: 1.1; color: var(--pico-color); }
+
+    /* ── Page header ── */
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.875rem; }
+    .page-header hgroup { margin: 0; }
   </style>
 </head>
 <body>

@@ -1,26 +1,24 @@
 {% extends "base.html" %}
 {% block title %}Assignments — Choreizo{% endblock %}
 {% block content %}
-<header style="display:flex; align-items:center; justify-content:space-between;">
+<div class="page-header">
   <hgroup>
     <h2>Today's assignments</h2>
-    <p class="muted">{{ today }} ({{ today_rows|length }} chore{{ '' if today_rows|length == 1 else 's' }})</p>
+    <p class="muted">{{ today }} · {{ today_rows|length }} chore{{ '' if today_rows|length == 1 else 's' }}</p>
   </hgroup>
   <div role="group" style="margin:0">
     <form method="post" action="/admin/run-assignment" style="display:inline; margin:0;">
-      <button type="submit">Run assignment now</button>
+      <button type="submit" style="font-size:0.85rem; padding:0.2rem 0.65rem;">Run assignment</button>
     </form>
     <form method="post" action="/admin/send-now" style="display:inline; margin:0;">
-      <button type="submit" class="secondary">Send now</button>
+      <button type="submit" class="secondary" style="font-size:0.85rem; padding:0.2rem 0.65rem;">Send now</button>
     </form>
     <form method="post" action="/admin/force-send" style="display:inline; margin:0;">
-      <button type="submit" class="contrast outline"
-              title="Sends to all linked users right now, ignoring send-time windows. Good for testing.">
-        ⚡ Force send
-      </button>
+      <button type="submit" class="contrast outline" style="font-size:0.85rem; padding:0.2rem 0.65rem;"
+              title="Sends to all linked users now, ignoring send-time windows.">⚡ Force</button>
     </form>
   </div>
-</header>
+</div>
 
 {% if saved %}<div class="flash ok">Assignment run.</div>{% endif %}
 {% if sent %}<div class="flash ok">Sent daily DMs to {{ sent }} user{{ '' if sent == 1 else 's' }}.</div>{% endif %}
