@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="light" id="html-root">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,6 +43,9 @@
         {% else %}
           <li><a href="/login">Sign in</a></li>
         {% endif %}
+        <li>
+          <button id="theme-toggle" class="secondary outline" style="padding:0.25rem 0.6rem; border:none; background:none; cursor:pointer; font-size:1.1rem;" title="Toggle dark mode">🌙</button>
+        </li>
       </ul>
     </nav>
     {% set fk = flash_kind | default("ok") %}
@@ -50,5 +53,18 @@
     {% block content %}{% endblock %}
     <footer class="muted"><small>Choreizo v{{ version | default("0.1.0") }}</small></footer>
   </main>
+<script>
+  const root = document.getElementById('html-root');
+  const btn = document.getElementById('theme-toggle');
+  const stored = localStorage.getItem('theme');
+  if (stored) root.setAttribute('data-theme', stored);
+  btn.textContent = root.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
+  btn.addEventListener('click', () => {
+    const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    btn.textContent = next === 'dark' ? '☀️' : '🌙';
+  });
+</script>
 </body>
 </html>
