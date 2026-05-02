@@ -36,6 +36,7 @@ from app.eligibility import resolve_eligible_users
 from app.models import Assignment, Chore, User
 
 LOAD_WINDOW_DAYS = 30
+JITTER_MIN_FREQ = 7   # days; chores shorter than this use exact scheduling
 
 
 def _date_str(d: date) -> str:
@@ -97,6 +98,43 @@ async def _recent_load_per_user(
     return Counter(r[0] for r in rows)
 
 
+def _compute_next_due(
+    chore: Chore,
+    today: date,
+    rng: random.Random,
+    occupied: set[date],
+) -> date:
+    """Return the next_due_date to write after assigning `chore` today.
+
+    Chores with frequency < JITTER_MIN_FREQ use exact frequency (no jitter).
+    Longer chores get ±10 % randomness and avoid dates already claimed by
+    other high-frequency chores in this scheduling run (spreading), so
+    e.g. "change air filters" and "clean gutters" don't both land on the
+    same day when their cycles happen to expire together.
+    """
+    freq = chore.frequency_days
+    center = today + timedelta(days=freq)
+
+    if freq < JITTER_MIN_FREQ:
+        return center  # exact; short-cycle chores don't need spreading
+
+    jitter = max(1, round(freq * 0.10))
+
+    # Try a random day inside [center−jitter, center+jitter].
+    offset = rng.randint(-jitter, jitter)
+    candidate = center + timedelta(days=offset)
+    if candidate not in occupied:
+        return candidate
+
+    # Walk outward from center until we find an unoccupied day.
+    for delta in range(1, jitter + 1):
+        for day in (center + timedelta(days=delta), center - timedelta(days=delta)):
+            if day not in occupied:
+                return day
+
+    return center  # all slots in the window taken; fall back to exact
+
+
 def _weighted_choice(
     candidates: list[User],
     loads: dict[int, int],
@@ -125,6 +163,13 @@ async def assign_for_date(
             select(Chore).where(Chore.enabled.is_(True)).order_by(Chore.id)
         )
     ).scalars().all()
+
+    # Seed the occupied-date set with next_due_dates already in the DB so
+    # new high-frequency chores spread around them.
+    occupied: set[date] = set()
+    for c in chores:
+        if c.frequency_days >= JITTER_MIN_FREQ and c.next_due_date:
+            occupied.add(date.fromisoformat(c.next_due_date))
 
     already = await _existing_today(session, today_str)
     last_dates = await _last_assignment_date(session)
@@ -163,8 +208,11 @@ async def assign_for_date(
             status="pending",
         )
         session.add(a)
-        if chore.next_due_date is not None:
-            chore.next_due_date = None
+        # Schedule the next cycle with ±10 % jitter and spreading.
+        next_due = _compute_next_due(chore, today, rng, occupied)
+        chore.next_due_date = next_due.isoformat()
+        if chore.frequency_days >= JITTER_MIN_FREQ:
+            occupied.add(next_due)  # prevent same-day stacking within this run
         await session.flush()
         # Bump in-memory load so a chain of due chores in one run doesn't
         # all dog-pile the same low-load user.

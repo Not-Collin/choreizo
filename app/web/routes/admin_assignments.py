@@ -36,6 +36,7 @@ async def assignments_view(
     request: Request,
     saved: int = 0,
     sent: int = 0,
+    reassigned: int = 0,
     admin: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
@@ -57,6 +58,13 @@ async def assignments_view(
             .limit(30)
         )
     ).scalars().all()
+    members = (
+        await session.execute(
+            select(User)
+            .where(User.active.is_(True), User.is_admin.is_(False))
+            .order_by(User.name)
+        )
+    ).scalars().all()
     return templates.TemplateResponse(
         request=request,
         name="admin/assignments.html",
@@ -65,8 +73,10 @@ async def assignments_view(
             "today": today,
             "today_rows": today_rows,
             "recent_rows": recent_rows,
+            "members": members,
             "saved": bool(saved),
             "sent": int(sent),
+            "reassigned": bool(reassigned),
         },
     )
 
@@ -82,6 +92,24 @@ async def _send_now_default() -> int:
 
 
 _send_now = _send_now_default
+
+
+@router.post("/assignments/{assignment_id}/reassign")
+async def reassign_assignment(
+    assignment_id: int,
+    user_id: int = Form(...),
+    admin: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    a = await session.get(Assignment, assignment_id)
+    if a is None:
+        raise HTTPException(status_code=404)
+    new_user = await session.get(User, user_id)
+    if new_user is None or not new_user.active:
+        raise HTTPException(status_code=400, detail="Invalid user.")
+    a.user_id = user_id
+    await session.commit()
+    return RedirectResponse("/admin/assignments?reassigned=1", status_code=303)
 
 
 @router.post("/assignments/{assignment_id}/status")
