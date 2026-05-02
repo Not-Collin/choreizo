@@ -45,10 +45,12 @@ async def resolve_eligible_users(
     deny_user_ids = {r.user_id for r in rules if r.mode == "deny"}
 
     if allow_users:
-        return [u for u in allow_users if u.active]
+        return [u for u in allow_users if u.active and not u.is_admin]
 
     all_users = (
-        await session.execute(select(User).where(User.active.is_(True)))
+        await session.execute(
+            select(User).where(User.active.is_(True), User.is_admin.is_(False))
+        )
     ).scalars().all()
     return [u for u in all_users if u.id not in deny_user_ids]
 
