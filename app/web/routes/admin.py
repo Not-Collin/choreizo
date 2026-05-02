@@ -56,7 +56,7 @@ async def chores_list(
     return templates.TemplateResponse(
         request=request,
         name="admin/chores_list.html",
-        context={"current_user": admin, "chores": rows},
+        context={"current_user": admin, "chores": rows, "freq_display": _freq_display},
     )
 
 
@@ -70,6 +70,22 @@ async def chore_new_form(
         name="admin/chore_form.html",
         context={"current_user": admin, "chore": None, "form": {}},
     )
+
+
+_UNIT_DAYS: dict[str, int] = {"day": 1, "week": 7, "month": 30, "year": 365}
+
+
+def _freq_to_parts(days: int) -> tuple[int, str]:
+    for unit in ("year", "month", "week", "day"):
+        d = _UNIT_DAYS[unit]
+        if days % d == 0:
+            return days // d, unit
+    return days, "day"
+
+
+def _freq_display(days: int) -> str:
+    n, unit = _freq_to_parts(days)
+    return f"every {n} {unit}{'s' if n != 1 else ''}"
 
 
 def _parse_weekdays(values: list[str]) -> str | None:
@@ -89,17 +105,20 @@ def _parse_months(values: list[str]) -> str | None:
 def _parse_chore_form(
     name: str,
     description: str | None,
-    frequency_days: int,
+    frequency_amount: int,
+    frequency_unit: str,
     priority: int,
     estimated_minutes: str | None,
     enabled: str | None,
+    next_due_date: str | None = None,
     allowed_weekday_values: list[str] | None = None,
     allowed_month_values: list[str] | None = None,
 ) -> dict:
-    if frequency_days < 1:
-        raise ValueError("Frequency must be at least 1 day.")
+    unit_days = _UNIT_DAYS.get(frequency_unit, 1)
+    frequency_days = max(1, frequency_amount * unit_days)
     if priority not in (0, 1):
         raise ValueError("Priority must be normal or high.")
+    ndd = (next_due_date or "").strip() or None
     return {
         "name": name.strip(),
         "description": (description or "").strip() or None,
@@ -107,6 +126,7 @@ def _parse_chore_form(
         "priority": priority,
         "estimated_minutes": int(estimated_minutes) if estimated_minutes else None,
         "enabled": enabled is not None,
+        "next_due_date": ndd,
         "allowed_weekdays": _parse_weekdays(allowed_weekday_values or []),
         "allowed_months": _parse_months(allowed_month_values or []),
     }
@@ -117,9 +137,11 @@ async def chore_create(
     request: Request,
     name: str = Form(...),
     description: str | None = Form(None),
-    frequency_days: int = Form(...),
+    frequency_amount: int = Form(1),
+    frequency_unit: str = Form("week"),
     priority: int = Form(0),
     estimated_minutes: str | None = Form(None),
+    next_due_date: str | None = Form(None),
     enabled: str | None = Form(None),
     admin: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
@@ -129,7 +151,8 @@ async def chore_create(
     month_values = list(form.getlist("allowed_month"))
     try:
         fields = _parse_chore_form(
-            name, description, frequency_days, priority, estimated_minutes, enabled,
+            name, description, frequency_amount, frequency_unit,
+            priority, estimated_minutes, enabled, next_due_date,
             weekday_values, month_values,
         )
     except ValueError as e:
@@ -168,6 +191,7 @@ async def chore_edit_form(
         {int(m) for m in chore.allowed_months.split(",") if m.strip().isdigit()}
         if chore.allowed_months else None
     )
+    freq_amount, freq_unit = _freq_to_parts(chore.frequency_days)
     return templates.TemplateResponse(
         request=request,
         name="admin/chore_form.html",
@@ -177,6 +201,8 @@ async def chore_edit_form(
             "form": {},
             "weekday_set": weekday_set,
             "month_set": month_set,
+            "freq_amount": freq_amount,
+            "freq_unit": freq_unit,
         },
     )
 
@@ -187,9 +213,11 @@ async def chore_update(
     request: Request,
     name: str = Form(...),
     description: str | None = Form(None),
-    frequency_days: int = Form(...),
+    frequency_amount: int = Form(1),
+    frequency_unit: str = Form("week"),
     priority: int = Form(0),
     estimated_minutes: str | None = Form(None),
+    next_due_date: str | None = Form(None),
     enabled: str | None = Form(None),
     admin: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
@@ -202,7 +230,8 @@ async def chore_update(
     month_values = list(form.getlist("allowed_month"))
     try:
         fields = _parse_chore_form(
-            name, description, frequency_days, priority, estimated_minutes, enabled,
+            name, description, frequency_amount, frequency_unit,
+            priority, estimated_minutes, enabled, next_due_date,
             weekday_values, month_values,
         )
     except ValueError as e:

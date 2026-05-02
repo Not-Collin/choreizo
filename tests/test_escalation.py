@@ -225,3 +225,49 @@ async def test_apply_is_idempotent_against_already_resolved(db_factory) -> None:
         rows = (await s.execute(select(Assignment))).scalars().all()
         assert len(rows) == 1
         assert rows[0].status == "completed"
+
+
+# -- Snooze behaviour ---------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_snoozed_assignment_skips_hourly_reminder(db_factory) -> None:
+    """An actively snoozed assignment should not appear in plan.hourly."""
+    async with db_factory() as s:
+        _, _, a = await _seed_basic(s, hours_ago=4)  # would normally get a reminder
+        a.snoozed_until = _utc() + timedelta(hours=1)  # still snoozed
+        await s.commit()
+        plan = await build_action_plan(s, now_utc=_utc(), today_str="2026-04-24")
+        assert plan.hourly == []
+
+
+@pytest.mark.asyncio
+async def test_expired_snooze_appears_in_snooze_resends(db_factory) -> None:
+    """An assignment whose snooze has expired should appear in plan.snooze_resends."""
+    async with db_factory() as s:
+        _, _, a = await _seed_basic(s, hours_ago=2, priority=0)
+        a.snoozed_until = _utc() - timedelta(minutes=30)  # expired 30 min ago
+        await s.commit()
+        plan = await build_action_plan(s, now_utc=_utc(), today_str="2026-04-24")
+        assert len(plan.snooze_resends) == 1
+        assert plan.snooze_resends[0].assignment.id == a.id
+
+
+@pytest.mark.asyncio
+async def test_apply_snooze_resend_sends_and_clears(db_factory) -> None:
+    """apply_action_plan sends the chore message and clears snoozed_until."""
+    async with db_factory() as s:
+        _, _, a = await _seed_basic(s, hours_ago=2, priority=0)
+        a.snoozed_until = _utc() - timedelta(minutes=30)
+        await s.commit()
+        plan = await build_action_plan(s, now_utc=_utc(), today_str="2026-04-24")
+
+    bot = MagicMock(); bot.send_message = AsyncMock()
+    counts = await apply_action_plan(bot, plan, session_factory=db_factory)
+    assert counts["snooze_resends"] == 1
+    bot.send_message.assert_called()
+
+    # snoozed_until should be cleared so it doesn't fire again
+    async with db_factory() as s:
+        refreshed = (await s.execute(select(Assignment).where(Assignment.id == a.id))).scalar_one()
+        assert refreshed.snoozed_until is None

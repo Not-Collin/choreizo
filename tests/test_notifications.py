@@ -246,7 +246,7 @@ def test_chore_message_text_includes_metadata() -> None:
     a.chore = chore
     text = chore_message_text(a)
     assert "Vacuum" in text
-    assert "every 7d" in text
+    assert "every 1 week" in text
     assert "~20 min" in text
     assert "high priority" in text
     assert "Living room rug" in text
@@ -313,6 +313,105 @@ async def test_handle_chore_callback_round_trip(db_factory, monkeypatch) -> None
     async with db_factory() as s:
         a = (await s.execute(select(Assignment).where(Assignment.id == aid))).scalar_one()
         assert a.status == "completed"
+
+
+# -- Snooze -------------------------------------------------------------------
+
+
+def test_snooze_callback_round_trip() -> None:
+    from app.tg.notify import parse_snooze_callback, snooze_callback_for
+
+    payload = snooze_callback_for(7, 2)
+    assert payload == "snooze:7:2"
+    assert parse_snooze_callback(payload) == (7, 2)
+    assert parse_snooze_callback("assign:7:done") is None
+    assert parse_snooze_callback("snooze:bad:2") is None
+
+
+@pytest.mark.asyncio
+async def test_snooze_assignment_sets_snoozed_until(db_factory) -> None:
+    from app.notifications import snooze_assignment
+
+    async with db_factory() as s:
+        u = User(name="u", active=True, telegram_chat_id=55)
+        c = Chore(name="A", frequency_days=1)
+        s.add_all([u, c]); await s.commit(); await s.refresh(u); await s.refresh(c)
+        a = Assignment(chore_id=c.id, user_id=u.id, assigned_date="2026-04-24", status="pending")
+        s.add(a); await s.commit(); await s.refresh(a)
+        aid = a.id
+
+        result = await snooze_assignment(s, assignment_id=aid, by_chat_id=55, hours=2)
+        assert result.ok
+        assert "2 hours" in result.message
+
+        await s.refresh(a)
+        assert a.snoozed_until is not None
+        assert a.status == "pending"  # status unchanged — it's still pending
+
+
+@pytest.mark.asyncio
+async def test_snooze_rejects_wrong_user(db_factory) -> None:
+    from app.notifications import snooze_assignment
+
+    async with db_factory() as s:
+        owner = User(name="owner", active=True, telegram_chat_id=1)
+        c = Chore(name="A", frequency_days=1)
+        s.add_all([owner, c]); await s.commit(); await s.refresh(owner); await s.refresh(c)
+        a = Assignment(chore_id=c.id, user_id=owner.id, assigned_date="2026-04-24", status="pending")
+        s.add(a); await s.commit(); await s.refresh(a)
+
+        result = await snooze_assignment(s, assignment_id=a.id, by_chat_id=999, hours=1)
+        assert not result.ok
+
+
+@pytest.mark.asyncio
+async def test_daily_send_skips_snoozed_assignments(db_factory) -> None:
+    """A user whose only assignment is snoozed should not get a daily send."""
+    from datetime import datetime, timezone
+
+    async with db_factory() as s:
+        u = User(name="u", active=True, telegram_chat_id=99, send_time="08:00")
+        c = Chore(name="A", frequency_days=1)
+        s.add_all([u, c]); await s.commit(); await s.refresh(u); await s.refresh(c)
+        # Snoozed far into the future so it's always active regardless of wall-clock time
+        future = datetime(2099, 1, 1, tzinfo=timezone.utc)
+        a = Assignment(
+            chore_id=c.id, user_id=u.id, assigned_date="2026-04-24",
+            status="pending", snoozed_until=future,
+        )
+        s.add(a); await s.commit()
+
+        batches = await users_needing_send(s, now_local=_local(hour=8, minute=0))
+        assert batches == []
+
+
+# -- Member settings ----------------------------------------------------------
+
+
+def test_member_settings_page_renders(client) -> None:
+    client.post("/login", data={"name": "admin", "password": "hunter2"})
+    r = client.get("/me/settings")
+    assert r.status_code == 200
+    assert "send time" in r.text.lower()
+
+
+def test_member_settings_save_updates_send_time(client) -> None:
+    client.post("/login", data={"name": "admin", "password": "hunter2"})
+    r = client.post(
+        "/me/settings",
+        data={"send_time": "09:30"},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    r2 = client.get("/me/settings")
+    assert "09:30" in r2.text
+
+
+def test_member_settings_rejects_invalid_time(client) -> None:
+    client.post("/login", data={"name": "admin", "password": "hunter2"})
+    r = client.post("/me/settings", data={"send_time": "9am"})
+    assert r.status_code == 400
+    assert "HH:MM" in r.text
 
 
 # -- HTTP: admin /admin/send-now -----------------------------------------------

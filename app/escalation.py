@@ -69,15 +69,25 @@ class Rollover:
 
 
 @dataclass
+class SnoozeResend:
+    """Snooze timer has expired — re-notify the assignee and clear the flag."""
+    assignment: Assignment
+
+
+@dataclass
 class ActionPlan:
     hourly: list[HourlyReminder] = field(default_factory=list)
     escalations: list[Escalation] = field(default_factory=list)
     admin_notifies: list[AdminNotify] = field(default_factory=list)
     rollovers: list[Rollover] = field(default_factory=list)
+    snooze_resends: list[SnoozeResend] = field(default_factory=list)
 
     @property
     def is_empty(self) -> bool:
-        return not (self.hourly or self.escalations or self.admin_notifies or self.rollovers)
+        return not (
+            self.hourly or self.escalations or self.admin_notifies
+            or self.rollovers or self.snooze_resends
+        )
 
 
 async def _reminder_kinds_for(
@@ -179,6 +189,19 @@ async def build_action_plan(
         age_hours = (now - assigned_at).total_seconds() / 3600.0
         kinds = kinds_per_assignment.get(a.id, set())
 
+        # 0. SNOOZE RESEND: snooze timer has expired — re-notify and clear flag.
+        if a.snoozed_until is not None:
+            snooze_ts = _aware(a.snoozed_until)
+            if now >= snooze_ts:
+                # Expired: queue a resend; the executor clears snoozed_until.
+                plan.snooze_resends.append(SnoozeResend(assignment=a))
+            # Whether the snooze is still active or just expired, skip the
+            # regular hourly-reminder logic for this tick to avoid double pings.
+            # Escalation and admin-notify still proceed normally so SLAs hold.
+            snoozed_active = now < snooze_ts
+        else:
+            snoozed_active = False
+
         # 1. ROLLOVER: still pending from a prior day and high-priority.
         if (
             rollover_hp
@@ -189,8 +212,8 @@ async def build_action_plan(
             plan.rollovers.append(Rollover(old_assignment=a, today_str=today_str))
             continue  # don't also nag the original; the rolled-over copy nags
 
-        # 2. HOURLY REMINDER (high-priority only).
-        if chore is not None and chore.priority == 1:
+        # 2. HOURLY REMINDER (high-priority only; skip if actively snoozed).
+        if chore is not None and chore.priority == 1 and not snoozed_active:
             interval = max(1, reminder_interval)
             sent_count = await _hourly_reminder_count(session, a.id)
             # Each reminder represents `interval` hours of waiting; we owe

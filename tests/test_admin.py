@@ -75,7 +75,8 @@ def test_create_chore_round_trip(client: TestClient) -> None:
         data={
             "name": "Vacuum",
             "description": "Living room rug",
-            "frequency_days": "7",
+            "frequency_amount": "1",
+            "frequency_unit": "week",
             "priority": "1",
             "estimated_minutes": "20",
             "enabled": "1",
@@ -85,25 +86,25 @@ def test_create_chore_round_trip(client: TestClient) -> None:
     assert r.status_code == 303
     listing = client.get("/admin/chores").text
     assert "Vacuum" in listing
-    assert "every 7d" in listing
+    assert "every 1 week" in listing
     assert "high" in listing
 
 
-def test_create_chore_rejects_zero_frequency(client: TestClient) -> None:
+def test_create_chore_rejects_invalid_priority(client: TestClient) -> None:
     _login(client)
     r = client.post(
         "/admin/chores",
-        data={"name": "Bogus", "frequency_days": "0", "priority": "0"},
+        data={"name": "Bogus", "frequency_amount": "1", "frequency_unit": "week", "priority": "5"},
     )
     assert r.status_code == 400
-    assert "Frequency" in r.text
+    assert "Priority" in r.text
 
 
 def test_edit_chore_updates_fields(client: TestClient) -> None:
     _login(client)
     client.post(
         "/admin/chores",
-        data={"name": "Mop", "frequency_days": "14", "priority": "0", "enabled": "1"},
+        data={"name": "Mop", "frequency_amount": "2", "frequency_unit": "week", "priority": "0", "enabled": "1"},
     )
     edit = client.get("/admin/chores/1/edit")
     assert edit.status_code == 200
@@ -111,20 +112,20 @@ def test_edit_chore_updates_fields(client: TestClient) -> None:
 
     r = client.post(
         "/admin/chores/1",
-        data={"name": "Mop floors", "frequency_days": "10", "priority": "1", "enabled": "1"},
+        data={"name": "Mop floors", "frequency_amount": "10", "frequency_unit": "day", "priority": "1", "enabled": "1"},
         follow_redirects=False,
     )
     assert r.status_code == 303
     after = client.get("/admin/chores").text
     assert "Mop floors" in after
-    assert "every 10d" in after
+    assert "every 10 days" in after
 
 
 def test_delete_chore_removes_it(client: TestClient) -> None:
     _login(client)
     client.post(
         "/admin/chores",
-        data={"name": "Trash", "frequency_days": "3", "priority": "0", "enabled": "1"},
+        data={"name": "Trash", "frequency_amount": "3", "frequency_unit": "day", "priority": "0", "enabled": "1"},
     )
     r = client.post("/admin/chores/1/delete", follow_redirects=False)
     assert r.status_code == 303

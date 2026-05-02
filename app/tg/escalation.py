@@ -55,7 +55,7 @@ async def apply_action_plan(
 ) -> dict:
     """Run the plan in a single new session. Returns counts per kind."""
     factory = session_factory or AsyncSessionLocal
-    counts = {"hourly": 0, "escalations": 0, "admin_notifies": 0, "rollovers": 0}
+    counts = {"hourly": 0, "escalations": 0, "admin_notifies": 0, "rollovers": 0, "snooze_resends": 0}
 
     async with factory() as session:
         # 1. Hourly reminders.
@@ -138,6 +138,25 @@ async def apply_action_plan(
             session.add(new)
             counts["rollovers"] += 1
 
+        # 5. Snooze resends — timer expired, re-notify and clear the flag.
+        for sr in plan.snooze_resends:
+            a = await session.get(Assignment, sr.assignment.id)
+            if a is None or a.status != "pending":
+                continue
+            chat_id = sr.assignment.user.telegram_chat_id if sr.assignment.user else None
+            if chat_id is not None:
+                await _send_safe(
+                    bot,
+                    chat_id=chat_id,
+                    text=chore_message_text(sr.assignment),
+                    reply_markup=chore_keyboard(sr.assignment.id),
+                    parse_mode="Markdown",
+                    disable_web_page_preview=True,
+                )
+            # Clear the snooze so it doesn't fire again next tick.
+            a.snoozed_until = None
+            counts["snooze_resends"] += 1
+
         await session.commit()
 
     if any(counts.values()):
@@ -153,5 +172,5 @@ async def hourly_tick(bot: "Bot", *, now_utc: datetime | None = None) -> dict:
     async with AsyncSessionLocal() as session:
         plan = await build_action_plan(session, now_utc=now, today_str=today_local)
     if plan.is_empty:
-        return {"hourly": 0, "escalations": 0, "admin_notifies": 0, "rollovers": 0}
+        return {"hourly": 0, "escalations": 0, "admin_notifies": 0, "rollovers": 0, "snooze_resends": 0}
     return await apply_action_plan(bot, plan)

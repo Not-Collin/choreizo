@@ -18,6 +18,7 @@ from app.config import get_effective_str, get_settings
 from app.db import get_session
 from app.eligibility import get_eligibility_map, set_member_optin
 from app.models import Assignment, Chore, User
+from app.web.routes.admin import _UNIT_DAYS
 
 _TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
@@ -139,11 +140,14 @@ async def _upcoming_chores(
 
     upcoming = []
     for chore in chores:
-        last = latest_by_chore.get(chore.id)
-        if last:
-            next_due = date.fromisoformat(last) + timedelta(days=chore.frequency_days)
+        if chore.next_due_date:
+            next_due = date.fromisoformat(chore.next_due_date)
         else:
-            next_due = today
+            last = latest_by_chore.get(chore.id)
+            if last:
+                next_due = date.fromisoformat(last) + timedelta(days=chore.frequency_days)
+            else:
+                next_due = today
 
         if next_due > horizon:
             continue
@@ -315,9 +319,11 @@ async def my_chore_create(
     request: Request,
     name: str = Form(...),
     description: str | None = Form(None),
-    frequency_days: int = Form(...),
+    frequency_amount: int = Form(1),
+    frequency_unit: str = Form("week"),
     priority: int = Form(0),
     estimated_minutes: str | None = Form(None),
+    next_due_date: str | None = Form(None),
     user: User | None = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
@@ -325,14 +331,15 @@ async def my_chore_create(
     form = await request.form()
     weekday_values = list(form.getlist("allowed_weekday"))
     month_values = list(form.getlist("allowed_month"))
-    if frequency_days < 1 or priority not in (0, 1):
+    frequency_days = max(1, frequency_amount * _UNIT_DAYS.get(frequency_unit, 1))
+    if priority not in (0, 1):
         return templates.TemplateResponse(
             request=request,
             name="me_chore_new.html",
             context={
                 "current_user": me,
                 "form": form,
-                "error": "Frequency must be ≥ 1 day and priority must be normal or high.",
+                "error": "Priority must be normal or high.",
             },
             status_code=400,
         )
@@ -340,6 +347,7 @@ async def my_chore_create(
     allowed_weekdays = None if len(days) == 0 or len(days) == 7 else ",".join(str(d) for d in days)
     months = sorted({int(m) for m in month_values if m.isdigit() and 1 <= int(m) <= 12})
     allowed_months = None if len(months) == 0 or len(months) == 12 else ",".join(str(m) for m in months)
+    ndd = (next_due_date or "").strip() or None
     chore = Chore(
         name=name.strip(),
         description=(description or "").strip() or None,
@@ -348,9 +356,63 @@ async def my_chore_create(
         estimated_minutes=int(estimated_minutes) if estimated_minutes else None,
         allowed_weekdays=allowed_weekdays,
         allowed_months=allowed_months,
+        next_due_date=ndd,
         enabled=True,
         created_by_user_id=me.id,
     )
     session.add(chore)
     await session.commit()
     return RedirectResponse("/me/chores?saved=1", status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# Member settings (send time, etc.)
+# ---------------------------------------------------------------------------
+
+_SEND_TIME_RE = __import__("re").compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
+
+@router.get("/settings", response_class=HTMLResponse)
+async def my_settings(
+    request: Request,
+    saved: int = 0,
+    user: User | None = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    me = _require_member(user)
+    return templates.TemplateResponse(
+        request=request,
+        name="me_settings.html",
+        context={
+            "current_user": me,
+            "saved": bool(saved),
+        },
+    )
+
+
+@router.post("/settings")
+async def my_settings_save(
+    request: Request,
+    send_time: str = Form("08:00"),
+    user: User | None = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    me = _require_member(user)
+    send_time = send_time.strip()
+    if not _SEND_TIME_RE.match(send_time):
+        return templates.TemplateResponse(
+            request=request,
+            name="me_settings.html",
+            context={
+                "current_user": me,
+                "saved": False,
+                "error": "Send time must be in HH:MM format (e.g. 08:00).",
+            },
+            status_code=400,
+        )
+    # Re-fetch inside this session so the update commits cleanly.
+    db_me = await session.get(User, me.id)
+    if db_me is not None:
+        db_me.send_time = send_time
+        await session.commit()
+    return RedirectResponse("/me/settings?saved=1", status_code=303)

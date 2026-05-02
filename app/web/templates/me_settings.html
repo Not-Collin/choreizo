@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Settings — Choreizo{% endblock %}
+{% block content %}
+<div class="page-header">
+  <hgroup>
+    <h2>My Settings</h2>
+    <p class="muted">Preferences for your account</p>
+  </hgroup>
+</div>
+
+{% if saved %}<div class="flash ok">Settings saved.</div>{% endif %}
+{% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+
+<form method="post" action="/me/settings">
+  <article>
+    <header><strong>🔔 Chore list delivery time</strong></header>
+    <p class="muted" style="font-size:0.875rem; margin-bottom:0.75rem;">
+      When Choreizo sends your daily chore list via Telegram.
+      The bot will message you within a few minutes of this time each day.
+    </p>
+    <label style="max-width:14rem;">
+      Daily send time
+      <input type="time" name="send_time" required value="{{ current_user.send_time }}">
+      <small>Your local household time ({{ current_user.send_time }} currently set)</small>
+    </label>
+  </article>
+
+  <article>
+    <header><strong>👤 Account info</strong></header>
+    <table class="compact">
+      <tr>
+        <th>Name</th>
+        <td>{{ current_user.name }}</td>
+      </tr>
+      <tr>
+        <th>Role</th>
+        <td>{{ 'Admin' if current_user.is_admin else 'Member' }}</td>
+      </tr>
+      <tr>
+        <th>Telegram</th>
+        <td>
+          {% if current_user.telegram_chat_id %}
+            <ins>Linked{% if current_user.telegram_username %} (@{{ current_user.telegram_username }}){% endif %} ✓</ins>
+          {% else %}
+            <span class="muted">Not linked — ask an admin for an invite code</span>
+          {% endif %}
+        </td>
+      </tr>
+    </table>
+  </article>
+
+  <div role="group">
+    <button type="submit">Save settings</button>
+    <a href="/me" role="button" class="secondary outline">Cancel</a>
+  </div>
+</form>
+{% endblock %}

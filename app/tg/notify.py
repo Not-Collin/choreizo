@@ -26,6 +26,10 @@ log = logging.getLogger("choreizo.tg.notify")
 
 
 CALLBACK_PREFIX = "assign"
+SNOOZE_PREFIX = "snooze"
+
+# Snooze duration options shown in the picker message.
+SNOOZE_HOURS = [1, 2, 4, 8]
 
 
 def callback_for(assignment_id: int, action: str) -> str:
@@ -48,12 +52,40 @@ def parse_callback(data: str) -> tuple[int, str] | None:
         return None
 
 
+def snooze_callback_for(assignment_id: int, hours: int) -> str:
+    """Build a callback_data string for a snooze-duration button."""
+    return f"{SNOOZE_PREFIX}:{assignment_id}:{hours}"
+
+
+def parse_snooze_callback(data: str) -> tuple[int, int] | None:
+    """Inverse of snooze_callback_for. Returns (assignment_id, hours) or None."""
+    parts = data.split(":")
+    if len(parts) != 3 or parts[0] != SNOOZE_PREFIX:
+        return None
+    try:
+        return int(parts[1]), int(parts[2])
+    except ValueError:
+        return None
+
+
+_UNIT_DAYS = {"day": 1, "week": 7, "month": 30, "year": 365}
+
+
+def _freq_display(days: int) -> str:
+    for unit in ("year", "month", "week", "day"):
+        d = _UNIT_DAYS[unit]
+        if days % d == 0:
+            n = days // d
+            return f"every {n} {unit}{'s' if n != 1 else ''}"
+    return f"every {days} days"
+
+
 def chore_message_text(assignment: Assignment) -> str:
     chore = assignment.chore
     lines = [f"🧹 *{chore.name}*"]
     if chore.description:
         lines.append(chore.description)
-    bits = [f"every {chore.frequency_days}d"]
+    bits = [_freq_display(chore.frequency_days)]
     if chore.estimated_minutes:
         bits.append(f"~{chore.estimated_minutes} min")
     if chore.priority == 1:
@@ -65,11 +97,25 @@ def chore_message_text(assignment: Assignment) -> str:
 def chore_keyboard(assignment_id: int) -> "InlineKeyboardMarkup":
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-    return InlineKeyboardMarkup([[
-        InlineKeyboardButton("✅ Done",   callback_data=callback_for(assignment_id, "done")),
-        InlineKeyboardButton("⏭ Skip",   callback_data=callback_for(assignment_id, "skip")),
-        InlineKeyboardButton("🙈 Ignore", callback_data=callback_for(assignment_id, "ignore")),
-    ]])
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("✅ Done",   callback_data=callback_for(assignment_id, "done")),
+            InlineKeyboardButton("⏭ Skip",   callback_data=callback_for(assignment_id, "skip")),
+            InlineKeyboardButton("🙈 Ignore", callback_data=callback_for(assignment_id, "ignore")),
+            InlineKeyboardButton("⏰ Snooze", callback_data=callback_for(assignment_id, "snooze")),
+        ],
+    ])
+
+
+def snooze_keyboard(assignment_id: int) -> "InlineKeyboardMarkup":
+    """Duration-picker keyboard shown in the snooze follow-up message."""
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+    row = [
+        InlineKeyboardButton(f"{h}h", callback_data=snooze_callback_for(assignment_id, h))
+        for h in SNOOZE_HOURS
+    ]
+    return InlineKeyboardMarkup([row])
 
 
 STATUS_BADGE = {
