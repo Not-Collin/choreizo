@@ -22,6 +22,7 @@
           <th>Chore</th>
           <th>Frequency</th>
           <th>Priority</th>
+          <th>Next due</th>
           <th>Status</th>
         </tr>
       </thead>
@@ -41,6 +42,7 @@
           </td>
           <td>every {{ row.chore.frequency_days }}d</td>
           <td>{{ 'high' if row.chore.priority == 1 else 'normal' }}</td>
+          <td class="muted">{{ row.next_due or '—' }}</td>
           <td>
             {% if row.locked %}
               <small class="muted">admin-locked</small>

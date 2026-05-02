@@ -51,17 +51,19 @@
             {% elif a.status == 'overdue' %}<strong style="color:var(--pico-del-color, red)">overdue</strong>
             {% else %}<span class="muted">pending</span>{% endif %}
           </td>
-          <td style="text-align:right; white-space:nowrap;">
+          <td>
             {% if a.status in ('pending', 'overdue') %}
-              <form method="post" action="/me/assignments/{{ a.id }}/done" style="display:inline; margin:0;">
-                <button type="submit" title="Mark done" style="padding:0.15rem 0.55rem; font-size:0.8rem; margin:0 0.1rem;">✓</button>
+            <div style="display:flex; gap:0.2rem; flex-wrap:wrap; justify-content:flex-end;">
+              <form method="post" action="/me/assignments/{{ a.id }}/done" style="margin:0;">
+                <button type="submit" title="Mark done" style="padding:0.15rem 0.55rem; font-size:0.8rem; margin:0;">✓</button>
               </form>
-              <form method="post" action="/me/assignments/{{ a.id }}/skip" style="display:inline; margin:0;">
-                <button type="submit" title="Skip" class="secondary outline" style="padding:0.15rem 0.55rem; font-size:0.8rem; margin:0 0.1rem;">skip</button>
+              <form method="post" action="/me/assignments/{{ a.id }}/skip" style="margin:0;">
+                <button type="submit" title="Skip" class="secondary outline" style="padding:0.15rem 0.55rem; font-size:0.8rem; margin:0;">skip</button>
               </form>
-              <form method="post" action="/me/assignments/{{ a.id }}/ignore" style="display:inline; margin:0;">
-                <button type="submit" title="Ignore" class="contrast outline" style="padding:0.15rem 0.55rem; font-size:0.8rem; margin:0 0.1rem;">ignore</button>
+              <form method="post" action="/me/assignments/{{ a.id }}/ignore" style="margin:0;">
+                <button type="submit" title="Ignore" class="contrast outline" style="padding:0.15rem 0.55rem; font-size:0.8rem; margin:0;">ignore</button>
               </form>
+            </div>
             {% endif %}
           </td>
         </tr>

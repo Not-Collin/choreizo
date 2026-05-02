@@ -217,6 +217,7 @@ class _ChoreRow:
     chore: Chore
     eligible: bool
     locked: bool   # True when the chore's eligibility is admin-managed (allow-list)
+    next_due: str | None = None  # ISO date when this chore is next due, or None if unknown
 
 
 async def _build_chore_rows(
@@ -230,9 +231,20 @@ async def _build_chore_rows(
     Members can't escape an allow-list by ticking their own checkbox, so
     those rows render disabled.
     """
+    today = date.today()
+
     chores = (
         await session.execute(select(Chore).where(Chore.enabled.is_(True)).order_by(Chore.name))
     ).scalars().all()
+
+    # Global latest assignment date per chore (any user) — used to project next due.
+    latest_rows = (
+        await session.execute(
+            select(Assignment.chore_id, func.max(Assignment.assigned_date))
+            .group_by(Assignment.chore_id)
+        )
+    ).all()
+    latest_by_chore: dict[int, str] = {cid: last for cid, last in latest_rows if last}
 
     rows: list[_ChoreRow] = []
     any_locked = False
@@ -249,7 +261,19 @@ async def _build_chore_rows(
             locked = False
         if locked:
             any_locked = True
-        rows.append(_ChoreRow(chore=c, eligible=eligible, locked=locked))
+
+        # Compute next due date for display.
+        if c.next_due_date:
+            next_due: str | None = c.next_due_date
+        else:
+            last = latest_by_chore.get(c.id)
+            if last:
+                projected = date.fromisoformat(last) + timedelta(days=c.frequency_days)
+                next_due = max(projected, today).isoformat()
+            else:
+                next_due = None  # never assigned yet
+
+        rows.append(_ChoreRow(chore=c, eligible=eligible, locked=locked, next_due=next_due))
     return rows, any_locked
 
 
