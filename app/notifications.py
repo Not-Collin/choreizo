@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -106,7 +107,15 @@ async def users_needing_send(
     *,
     now_local: datetime,
 ) -> list[SendBatch]:
-    """Return SendBatch per user whose daily send window opened just now."""
+    """Return SendBatch per user whose daily send window opened just now.
+
+    Snoozed assignments are excluded from each user's batch — the initial
+    daily send skips them so the user doesn't immediately see a chore they
+    just snoozed from an earlier session.  When all of a user's assignments
+    are snoozed the whole batch is suppressed (no empty "Today's chores (0)"
+    message is sent).
+    """
+    now_utc = datetime.now(timezone.utc)
     today_str = now_local.date().isoformat()
     users = (
         await session.execute(
@@ -125,10 +134,20 @@ async def users_needing_send(
         pending = await pending_assignments_for_user(
             session, user_id=user.id, today_str=today_str
         )
-        if not pending:
+        # Filter out actively snoozed assignments.
+        unsnoozed = [
+            a for a in pending
+            if a.snoozed_until is None
+            or _aware(a.snoozed_until) <= now_utc
+        ]
+        if not unsnoozed:
             continue
-        out.append(SendBatch(user=user, assignments=pending))
+        out.append(SendBatch(user=user, assignments=unsnoozed))
     return out
+
+
+def _aware(dt: datetime) -> datetime:
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
 async def log_daily_send(
@@ -184,3 +203,50 @@ async def mark_chore_response(
         a.completed_at = now
     await session.commit()
     return ResponseResult(True, ACTION_REPLY_TEMPLATE[action], new_status)
+
+
+async def snooze_assignment(
+    session: AsyncSession,
+    *,
+    assignment_id: int,
+    by_chat_id: int,
+    hours: int,
+    house_timezone: str = "UTC",
+) -> ResponseResult:
+    """Snooze a pending assignment for *hours* hours.
+
+    Sets ``snoozed_until`` so the escalation/reminder engine skips the
+    assignment until the snooze expires, at which point the hourly tick
+    will resend it.
+    """
+    a = (
+        await session.execute(
+            select(Assignment)
+            .where(Assignment.id == assignment_id)
+            .options(selectinload(Assignment.user), selectinload(Assignment.chore))
+        )
+    ).scalar_one_or_none()
+    if a is None:
+        return ResponseResult(False, "That chore is no longer in the system.", None)
+    if a.user is None or a.user.telegram_chat_id != by_chat_id:
+        return ResponseResult(False, "That chore was assigned to someone else.", None)
+    if a.status != "pending":
+        return ResponseResult(False, f"Already {a.status}.", a.status)
+
+    now_utc = datetime.now(timezone.utc)
+    a.snoozed_until = now_utc + timedelta(hours=hours)
+    await session.commit()
+
+    # Format wake time in local timezone for confirmation message.
+    try:
+        local_tz = ZoneInfo(house_timezone)
+        wake_local = a.snoozed_until.astimezone(local_tz)
+    except Exception:
+        wake_local = a.snoozed_until
+    wake_str = wake_local.strftime("%H:%M")
+    plural = "hour" if hours == 1 else "hours"
+    return ResponseResult(
+        True,
+        f"Snoozed for {hours} {plural} — I'll remind you around {wake_str}.",
+        None,
+    )

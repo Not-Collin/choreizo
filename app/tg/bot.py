@@ -10,7 +10,8 @@ Handlers registered here:
   /whoami         — show the linked identity for this Telegram account.
   /web            — DM a magic-link URL to log in to the member web UI.
   /admin          — DM a magic-link URL for admin web UI (admins only).
-  callback "assign" — Done/Skip/Ignore from inline buttons (all phases).
+  callback "assign" — Done/Skip/Ignore/Snooze from inline buttons.
+  callback "snooze" — Duration selection for snooze (1h/2h/4h/8h).
 
 Daily push DMs come from app.tg.notify.tick, called by the per-minute
 scheduler job; that path is intentionally outside this module so it can
@@ -23,17 +24,21 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
+from sqlalchemy.orm import selectinload
+
 from app.config import get_settings
 from app.db import AsyncSessionLocal
 from app.invites import InviteError, redeem_invite
 from app.magic import mint_magic_link
 from app.models import Assignment, User
-from app.notifications import mark_chore_response, pending_assignments_for_user
+from app.notifications import mark_chore_response, pending_assignments_for_user, snooze_assignment
 from app.tg.notify import (
     chore_keyboard,
     chore_message_text,
     parse_callback,
+    parse_snooze_callback,
     resolved_message_text,
+    snooze_keyboard,
 )
 
 if TYPE_CHECKING:
@@ -99,10 +104,11 @@ async def handle_chore_callback(
     callback_data: str,
     by_chat_id: int,
 ) -> tuple[bool, str, str | None, int | None]:
-    """Pure core for the inline-button press.
+    """Pure core for the inline-button press (done/skip/ignore only).
 
     Returns (ok, user_facing_message, new_status_or_none, assignment_id_or_none).
     The PTB handler wraps this and edits the message in place.
+    Callers must handle "snooze" action before reaching this function.
     """
     parsed = parse_callback(callback_data)
     if parsed is None:
@@ -118,6 +124,23 @@ async def handle_chore_callback(
     return result.ok, result.message, result.new_status, assignment_id
 
 
+async def _get_chore_name(assignment_id: int) -> str:
+    """Fetch the chore name for an assignment (for snooze prompt text)."""
+    from sqlalchemy import select as _select
+
+    async with AsyncSessionLocal() as session:
+        a = (
+            await session.execute(
+                _select(Assignment)
+                .where(Assignment.id == assignment_id)
+                .options(selectinload(Assignment.chore))
+            )
+        ).scalar_one_or_none()
+        if a is not None and a.chore is not None:
+            return a.chore.name
+    return "this chore"
+
+
 async def _callback_handler(update: "Update", context: "ContextTypes.DEFAULT_TYPE") -> None:
     query = update.callback_query
     if query is None or query.data is None:
@@ -127,12 +150,58 @@ async def _callback_handler(update: "Update", context: "ContextTypes.DEFAULT_TYP
         await query.answer("No chat context.", show_alert=False)
         return
 
-    ok, msg, new_status, assignment_id = await handle_chore_callback(
-        callback_data=query.data, by_chat_id=chat.id
+    data = query.data
+
+    # ── Snooze duration selected: "snooze:<id>:<hours>" ─────────────────────
+    snooze_parsed = parse_snooze_callback(data)
+    if snooze_parsed is not None:
+        assignment_id, hours = snooze_parsed
+        settings = get_settings()
+        async with AsyncSessionLocal() as session:
+            result = await snooze_assignment(
+                session,
+                assignment_id=assignment_id,
+                by_chat_id=chat.id,
+                hours=hours,
+                house_timezone=settings.house_timezone,
+            )
+        await query.answer(result.message, show_alert=True)
+        if result.ok:
+            try:
+                plural = "hour" if hours == 1 else "hours"
+                await query.edit_message_text(f"⏰ Snoozed for {hours} {plural}.")
+            except Exception:  # pragma: no cover
+                log.exception("Failed to edit snooze confirmation")
+        return
+
+    # ── Regular assign callback: "assign:<id>:<action>" ─────────────────────
+    parsed = parse_callback(data)
+    if parsed is None:
+        await query.answer("Unrecognised button.", show_alert=False)
+        return
+    assignment_id, action = parsed
+
+    # Snooze request — send a second message with duration options.
+    if action == "snooze":
+        await query.answer("How long should I wait?", show_alert=False)
+        chore_name = await _get_chore_name(assignment_id)
+        try:
+            await chat.send_message(
+                f"⏰ Snooze *{chore_name}* for how long?",
+                reply_markup=snooze_keyboard(assignment_id),
+                parse_mode="Markdown",
+            )
+        except Exception:  # pragma: no cover
+            log.exception("Failed to send snooze picker")
+        return
+
+    # Done / Skip / Ignore
+    ok, msg, new_status, _ = await handle_chore_callback(
+        callback_data=data, by_chat_id=chat.id
     )
     await query.answer(msg, show_alert=not ok)
 
-    if ok and assignment_id is not None and new_status is not None:
+    if ok and new_status is not None:
         try:
             from telegram.constants import ParseMode  # local import
 

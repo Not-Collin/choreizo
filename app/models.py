@@ -110,6 +110,7 @@ class Chore(Base):
     estimated_minutes: Mapped[int | None] = mapped_column(Integer)
     allowed_weekdays: Mapped[str | None] = mapped_column(String(13), nullable=True)
     allowed_months: Mapped[str | None] = mapped_column(String(35), nullable=True)
+    next_due_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(
@@ -179,6 +180,7 @@ class Assignment(Base):
     rolled_over_from_assignment_id: Mapped[int | None] = mapped_column(
         ForeignKey("assignments.id")
     )
+    snoozed_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text)
 
     chore: Mapped[Chore] = relationship(back_populates="assignments")

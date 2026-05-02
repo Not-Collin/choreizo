@@ -135,9 +135,13 @@ async def assign_for_date(
     for chore in chores:
         if chore.id in already:
             continue
-        last = last_dates.get(chore.id)
-        if last is not None and (today - last).days < chore.frequency_days:
-            continue
+        if chore.next_due_date is not None:
+            if today < date.fromisoformat(chore.next_due_date):
+                continue  # manually deferred
+        else:
+            last = last_dates.get(chore.id)
+            if last is not None and (today - last).days < chore.frequency_days:
+                continue
         if chore.allowed_weekdays is not None:
             allowed = {int(d) for d in chore.allowed_weekdays.split(",") if d.strip().isdigit()}
             if today.weekday() not in allowed:
@@ -159,6 +163,8 @@ async def assign_for_date(
             status="pending",
         )
         session.add(a)
+        if chore.next_due_date is not None:
+            chore.next_due_date = None
         await session.flush()
         # Bump in-memory load so a chain of due chores in one run doesn't
         # all dog-pile the same low-load user.

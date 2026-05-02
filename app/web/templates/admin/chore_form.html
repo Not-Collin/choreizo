@@ -19,9 +19,19 @@
   </label>
   <div class="grid">
     <label>
-      Frequency (days)
-      <input type="number" name="frequency_days" min="1" required
-             value="{{ form.frequency_days | default(chore.frequency_days if chore else 7) }}">
+      Frequency
+      <div style="display:flex; gap:0.5rem; align-items:center;">
+        <span style="white-space:nowrap; color:var(--pico-muted-color); font-size:0.85rem;">once every</span>
+        <input type="number" name="frequency_amount" min="1" required style="width:5rem; margin:0;"
+               value="{{ form.frequency_amount | default(freq_amount | default(1)) }}">
+        <select name="frequency_unit" style="margin:0;">
+          {% set fu = form.frequency_unit | default(freq_unit | default('week')) %}
+          <option value="day"   {% if fu == 'day'   %}selected{% endif %}>day(s)</option>
+          <option value="week"  {% if fu == 'week'  %}selected{% endif %}>week(s)</option>
+          <option value="month" {% if fu == 'month' %}selected{% endif %}>month(s)</option>
+          <option value="year"  {% if fu == 'year'  %}selected{% endif %}>year(s)</option>
+        </select>
+      </div>
     </label>
     <label>
       Priority
@@ -37,6 +47,18 @@
              value="{{ form.estimated_minutes | default(chore.estimated_minutes if chore and chore.estimated_minutes else '') }}">
     </label>
   </div>
+  <label>
+    Trigger next on (optional)
+    <div style="display:flex; gap:0.5rem; align-items:center;">
+      <input type="date" name="next_due_date" id="next_due_date"
+             value="{{ form.next_due_date | default(chore.next_due_date if chore and chore.next_due_date else '') }}"
+             style="margin:0; flex:0 0 auto; width:auto;">
+      <button type="button" class="secondary outline"
+              style="padding:0.2rem 0.6rem; font-size:0.8rem;"
+              onclick="document.getElementById('next_due_date').value=''">Clear</button>
+    </div>
+    <small class="muted">Pick a date from the calendar to delay this chore until that day. Leave blank to follow the normal frequency schedule. Cleared automatically after it fires.</small>
+  </label>
 
   <fieldset>
     <legend>Days of week <small class="muted">— leave all checked for "any day"</small></legend>
