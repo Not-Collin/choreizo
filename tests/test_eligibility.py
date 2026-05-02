@@ -33,6 +33,35 @@ async def test_default_includes_all_active_users(db_factory) -> None:
 
 
 @pytest.mark.asyncio
+async def test_admin_excluded_from_eligibility(db_factory) -> None:
+    async with db_factory() as s:
+        admin = User(name="admin", active=True, is_admin=True)
+        member = User(name="alice", active=True, is_admin=False)
+        chore = Chore(name="Vacuum", frequency_days=7)
+        s.add_all([admin, member, chore])
+        await s.commit()
+        eligible = await resolve_eligible_users(s, chore)
+        names = [u.name for u in eligible]
+        assert "admin" not in names
+        assert "alice" in names
+
+
+@pytest.mark.asyncio
+async def test_admin_excluded_even_if_on_allow_list(db_factory) -> None:
+    async with db_factory() as s:
+        admin = User(name="admin", active=True, is_admin=True)
+        member = User(name="alice", active=True, is_admin=False)
+        chore = Chore(name="Vacuum", frequency_days=7)
+        s.add_all([admin, member, chore])
+        await s.commit()
+        # Explicitly allow-list the admin — should still be excluded.
+        s.add(ChoreEligibility(chore_id=chore.id, user_id=admin.id, mode="allow"))
+        await s.commit()
+        eligible = await resolve_eligible_users(s, chore)
+        assert [u.name for u in eligible] == []
+
+
+@pytest.mark.asyncio
 async def test_deny_excludes_user(db_factory) -> None:
     async with db_factory() as s:
         u1 = User(name="a", active=True)
