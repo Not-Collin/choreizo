@@ -22,41 +22,42 @@
 
 {% if saved %}<div class="flash ok">Assignment run.</div>{% endif %}
 {% if sent %}<div class="flash ok">Sent daily DMs to {{ sent }} user{{ '' if sent == 1 else 's' }}.</div>{% endif %}
+{% if reassigned %}<div class="flash ok">Assignment reassigned.</div>{% endif %}
 {% if request.query_params.get('force_no_bot') %}<div class="flash error">No Telegram bot is running — set TELEGRAM_BOT_TOKEN in your .env and restart.</div>{% endif %}
 {% if request.query_params.get('status_saved') %}<div class="flash ok">Status updated.</div>{% endif %}
-{% if reassigned %}<div class="flash ok">Assignment reassigned.</div>{% endif %}
 
 {% if today_rows %}
 <figure>
   <table class="compact striped">
-    <thead><tr><th>Chore</th><th>Status</th><th>Assigned to</th></tr></thead>
+    <thead><tr><th>Chore</th><th>Assigned to</th><th>Status</th></tr></thead>
     <tbody>
       {% for a in today_rows %}
-      <tr>
-        <td><strong>{{ a.chore.name }}</strong></td>
+      <tr{% if a.status == 'overdue' %} class="row-overdue"{% endif %}>
         <td>
-          <form method="post" action="/admin/assignments/{{ a.id }}/status" style="display:flex; gap:.4rem; margin:0;">
-            <select name="status" style="margin:0; padding:.2rem .4rem; font-size:0.8rem;">
-              {% for st in ['pending','completed','skipped','ignored','overdue','escalated'] %}
-              <option value="{{ st }}" {% if a.status == st %}selected{% endif %}>{{ st }}</option>
-              {% endfor %}
-            </select>
-            <button type="submit" class="outline secondary" style="padding:.2rem .5rem; margin:0; font-size:0.8rem;">✓</button>
-          </form>
+          <strong>{{ a.chore.name }}</strong>
+          {% if a.chore.priority == 1 %} <small class="st-warn">⚠</small>{% endif %}
         </td>
         <td>
           {% if members %}
-          <form method="post" action="/admin/assignments/{{ a.id }}/reassign" style="display:flex; gap:.3rem; margin:0;">
-            <select name="user_id" style="margin:0; padding:.2rem .4rem; font-size:0.8rem;">
+          <form method="post" action="/admin/assignments/{{ a.id }}/reassign" style="display:flex; gap:.3rem; margin:0; align-items:center;">
+            <select name="user_id" style="margin:0; padding:.15rem .35rem; font-size:0.8rem; width:auto;">
               {% for u in members %}
               <option value="{{ u.id }}" {% if a.user_id == u.id %}selected{% endif %}>{{ u.name }}</option>
               {% endfor %}
             </select>
-            <button type="submit" class="outline secondary" style="padding:.2rem .5rem; margin:0; font-size:0.8rem;">→</button>
+            <button type="submit" class="outline secondary" style="padding:.15rem .45rem; margin:0; font-size:0.8rem;" title="Reassign">→</button>
           </form>
-          {% else %}
-          {{ a.user.name }}
-          {% endif %}
+          {% else %}{{ a.user.name }}{% endif %}
+        </td>
+        <td>
+          <form method="post" action="/admin/assignments/{{ a.id }}/status" style="display:flex; gap:.3rem; margin:0; align-items:center;">
+            <select name="status" style="margin:0; padding:.15rem .35rem; font-size:0.8rem; width:auto;">
+              {% for st in ['pending','completed','skipped','ignored','overdue','escalated'] %}
+              <option value="{{ st }}" {% if a.status == st %}selected{% endif %}>{{ st }}</option>
+              {% endfor %}
+            </select>
+            <button type="submit" class="outline secondary" style="padding:.15rem .45rem; margin:0; font-size:0.8rem;">✓</button>
+          </form>
         </td>
       </tr>
       {% endfor %}
@@ -64,7 +65,7 @@
   </table>
 </figure>
 {% else %}
-<p class="muted">Nothing assigned today yet.</p>
+<p class="muted">Nothing assigned today yet. Click <strong>Run assignment</strong> to generate today's chores.</p>
 {% endif %}
 
 <h3>Recent</h3>
@@ -75,10 +76,15 @@
     <tbody>
       {% for a in recent_rows %}
       <tr>
-        <td>{{ a.assigned_date }}</td>
+        <td class="muted">{{ a.assigned_date }}</td>
         <td>{{ a.chore.name }}</td>
         <td>{{ a.user.name }}</td>
-        <td>{{ a.status }}</td>
+        <td>
+          {% if a.status == 'completed' %}<span class="st-ok">✓ done</span>
+          {% elif a.status == 'overdue' %}<span class="st-warn">overdue</span>
+          {% elif a.status == 'escalated' %}<span class="st-warn">escalated</span>
+          {% else %}<span class="st-muted">{{ a.status }}</span>{% endif %}
+        </td>
       </tr>
       {% endfor %}
     </tbody>

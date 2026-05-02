@@ -16,9 +16,10 @@
       <tr>
         <th>Name</th>
         <th>Frequency</th>
+        <th>Next due</th>
         <th>Priority</th>
-        <th>Est. min</th>
-        <th>Enabled</th>
+        <th>Est.</th>
+        <th>On</th>
         <th></th>
       </tr>
     </thead>
@@ -26,13 +27,23 @@
       {% for c in chores %}
       <tr>
         <td><strong>{{ c.name }}</strong>{% if c.description %}<br><small class="muted">{{ c.description }}</small>{% endif %}</td>
+        <td class="muted">{{ freq_display(c.frequency_days) }}</td>
+        <td class="muted">{{ c.next_due_date or '—' }}</td>
         <td>
-          {{ freq_display(c.frequency_days) }}
-          {% if c.next_due_date %}<br><small class="muted">next: {{ c.next_due_date }}</small>{% endif %}
+          {% if c.priority == 1 %}
+            <span class="st-warn" style="font-size:0.8rem;">⚠ high</span>
+          {% else %}
+            <span class="muted" style="font-size:0.8rem;">normal</span>
+          {% endif %}
         </td>
-        <td>{{ 'high' if c.priority == 1 else 'normal' }}</td>
-        <td>{{ c.estimated_minutes or '—' }}</td>
-        <td>{{ 'yes' if c.enabled else 'no' }}</td>
+        <td class="muted">{{ (c.estimated_minutes | string + 'm') if c.estimated_minutes else '—' }}</td>
+        <td>
+          {% if c.enabled %}
+            <span class="st-ok" style="font-size:0.85rem;">✓</span>
+          {% else %}
+            <span class="muted" style="font-size:0.85rem;">—</span>
+          {% endif %}
+        </td>
         <td class="row-actions" style="text-align:right;">
           <a href="/admin/chores/{{ c.id }}/eligibility" role="button" class="secondary outline" style="padding:0.2rem 0.6rem">Who</a>
           <a href="/admin/chores/{{ c.id }}/edit" role="button" class="secondary outline" style="padding:0.2rem 0.6rem">Edit</a>
@@ -47,6 +58,6 @@
   </table>
 </figure>
 {% else %}
-<p class="muted">No chores yet. Create one to get started.</p>
+<p class="muted">No chores yet. <a href="/admin/chores/new">Create one</a> to get started.</p>
 {% endif %}
 {% endblock %}

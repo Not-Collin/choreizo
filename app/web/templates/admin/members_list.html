@@ -26,34 +26,42 @@
       <tr>
         <td><strong>{{ u.name }}</strong></td>
         <td>
-          {% if u.is_admin %}<span>admin</span>{% endif %}
-          {% if u.is_escalation %}<span class="muted"> · escalation</span>{% endif %}
-          {% if not u.is_admin and not u.is_escalation %}<span class="muted">member</span>{% endif %}
+          {% if u.is_admin %}
+            <span style="font-size:0.8rem; font-weight:500;">admin</span>
+          {% elif u.is_escalation %}
+            <span class="muted" style="font-size:0.8rem;">escalation</span>
+          {% else %}
+            <span class="muted" style="font-size:0.8rem;">member</span>
+          {% endif %}
         </td>
         <td>
           {% if u.telegram_chat_id %}
-            @{{ u.telegram_username or u.telegram_chat_id }}
+            <span class="st-ok" style="font-size:0.8rem;">@{{ u.telegram_username or u.telegram_chat_id }}</span>
           {% else %}
-            <span class="muted">unlinked</span>
+            <span class="muted" style="font-size:0.8rem;">unlinked</span>
           {% endif %}
         </td>
-        <td>{{ u.send_time }}</td>
-        <td>{{ 'yes' if u.active else 'no' }}</td>
-        <td class="row-actions" style="text-align:right; white-space:nowrap;">
-          <form method="post" action="/admin/members/{{ u.id }}/toggle-admin" style="display:inline; margin:0;">
-            <button type="submit" class="{% if u.is_admin %}contrast{% else %}secondary{% endif %} outline"
-                    style="padding:0.2rem 0.6rem"
-                    {% if u.id == current_user.id and u.is_admin %}
-                      title="Cannot remove your own admin role" disabled
-                    {% endif %}>
-              {{ 'Remove admin' if u.is_admin else 'Make admin' }}
-            </button>
-          </form>
-          <form method="post" action="/admin/members/{{ u.id }}/toggle" style="display:inline; margin:0;">
-            <button type="submit" class="secondary outline" style="padding:0.2rem 0.6rem">
-              {{ 'Deactivate' if u.active else 'Reactivate' }}
-            </button>
-          </form>
+        <td class="muted">{{ u.send_time }}</td>
+        <td>
+          {% if u.active %}<span class="st-ok">✓</span>{% else %}<span class="muted">—</span>{% endif %}
+        </td>
+        <td style="text-align:right;">
+          <div style="display:flex; gap:0.3rem; justify-content:flex-end; flex-wrap:wrap;">
+            <form method="post" action="/admin/members/{{ u.id }}/toggle-admin" style="margin:0;">
+              <button type="submit" class="{% if u.is_admin %}contrast{% else %}secondary{% endif %} outline"
+                      style="padding:0.15rem 0.5rem; font-size:0.8rem;"
+                      {% if u.id == current_user.id and u.is_admin %}
+                        title="Cannot remove your own admin role" disabled
+                      {% endif %}>
+                {{ '− admin' if u.is_admin else '+ admin' }}
+              </button>
+            </form>
+            <form method="post" action="/admin/members/{{ u.id }}/toggle" style="margin:0;">
+              <button type="submit" class="secondary outline" style="padding:0.15rem 0.5rem; font-size:0.8rem;">
+                {{ 'deactivate' if u.active else 'reactivate' }}
+              </button>
+            </form>
+          </div>
         </td>
       </tr>
       {% endfor %}

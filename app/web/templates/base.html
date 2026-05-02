@@ -23,6 +23,7 @@
     nav.app-nav { margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--pico-muted-border-color); }
     nav.app-nav li, nav.app-nav li a { font-size: 0.85rem; }
     nav.app-nav ul { margin-bottom: 0; }
+    nav.app-nav .logo { font-weight: bold; text-decoration: none; color: var(--pico-color); }
 
     /* ── Tables ── */
     table.compact td, table.compact th { padding: 0.35rem 0.55rem; font-size: 0.875rem; }
@@ -31,8 +32,8 @@
     /* ── Utilities ── */
     .muted { color: var(--pico-muted-color); }
     .flash { padding: 0.5rem 0.875rem; border-radius: var(--pico-border-radius); margin-bottom: 0.875rem; font-size: 0.875rem; }
-    .flash.error { background: var(--pico-del-color, #ffe5e5); }
-    .flash.ok    { background: var(--pico-ins-color, #e5ffe5); }
+    .flash.error { background: color-mix(in srgb, var(--pico-del-color, #c0392b) 15%, transparent); }
+    .flash.ok    { background: color-mix(in srgb, var(--pico-ins-color, #2d7a2d) 12%, transparent); }
     .row-actions form { display: inline; margin: 0; }
 
     /* ── Stat strip ── */
@@ -43,12 +44,31 @@
     /* ── Page header ── */
     .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.875rem; }
     .page-header hgroup { margin: 0; }
+
+    /* ── Status colours ── */
+    .st-ok      { color: var(--pico-ins-color, #2d7a2d); font-weight: 500; }
+    .st-warn    { color: var(--pico-del-color, #c0392b); font-weight: 500; }
+    .st-muted   { color: var(--pico-muted-color); }
+    tr.row-overdue td { background: color-mix(in srgb, var(--pico-del-color, #c0392b) 6%, transparent); }
+
+    /* ── Mini progress bar ── */
+    .prog { display:inline-flex; vertical-align:middle; width:4rem; height:0.4rem; background:var(--pico-muted-border-color); border-radius:99px; overflow:hidden; margin-right:.35rem; }
+    .prog-fill { height:100%; border-radius:99px; background:var(--pico-ins-color, #2d7a2d); transition:width .2s; }
+    .prog-fill.low { background:var(--pico-del-color, #c0392b); }
   </style>
 </head>
 <body>
   <main class="container">
     <nav class="app-nav">
-      <ul><li><strong>Choreizo</strong></li></ul>
+      <ul>
+        <li>
+          {% if current_user %}
+            <a href="{{ '/admin/assignments' if current_user.is_admin else '/me' }}" class="logo">Choreizo</a>
+          {% else %}
+            <strong>Choreizo</strong>
+          {% endif %}
+        </li>
+      </ul>
       <ul>
         {% if current_user %}
           {% if current_user.is_admin %}

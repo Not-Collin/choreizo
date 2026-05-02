@@ -18,7 +18,7 @@ from app.config import get_effective_str, get_settings
 from app.db import get_session
 from app.eligibility import get_eligibility_map, set_member_optin
 from app.models import Assignment, Chore, User
-from app.web.routes.admin import _UNIT_DAYS
+from app.web.routes.admin import _UNIT_DAYS, _freq_display as freq_display
 
 _TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
@@ -286,6 +286,7 @@ async def my_chores(
 ):
     me = _require_member(user)
     rows, any_locked = await _build_chore_rows(session, me)
+    today_str = datetime.now(_tz()).date().isoformat()
     return templates.TemplateResponse(
         request=request,
         name="me_chores.html",
@@ -294,6 +295,8 @@ async def my_chores(
             "rows": rows,
             "saved": bool(saved),
             "locked_out": any_locked,
+            "today": today_str,
+            "freq_display": freq_display,
         },
     )
 

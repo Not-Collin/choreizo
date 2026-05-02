@@ -6,9 +6,9 @@
     <h2>{{ current_user.name }}</h2>
     <p class="muted">
       {% if current_user.telegram_chat_id %}
-        Telegram{% if current_user.telegram_username %}: @{{ current_user.telegram_username }}{% endif %}
+        <span class="st-ok">●</span> Telegram{% if current_user.telegram_username %}: @{{ current_user.telegram_username }}{% endif %}
       {% else %}
-        Telegram not linked
+        <span class="st-muted">●</span> Telegram not linked
       {% endif %}
     </p>
   </hgroup>
@@ -33,23 +33,20 @@
   </header>
   {% if today_assignments %}
     <table class="compact striped">
-      <thead>
-        <tr><th>Chore</th><th>Status</th><th></th></tr>
-      </thead>
       <tbody>
         {% for a in today_assignments %}
-        <tr>
+        <tr{% if a.status == 'overdue' %} class="row-overdue"{% endif %}>
           <td>
             {{ a.chore.name }}
-            {% if a.chore.priority == 1 %}<small class="muted"> ⚠</small>{% endif %}
+            {% if a.chore.priority == 1 %}<small class="st-warn"> ⚠</small>{% endif %}
             {% if a.chore.estimated_minutes %}<small class="muted"> · {{ a.chore.estimated_minutes }}m</small>{% endif %}
           </td>
-          <td>
-            {% if a.status == 'completed' %}<span style="color:var(--pico-ins-color, green)">✓ done</span>
-            {% elif a.status == 'skipped' %}<span class="muted">skipped</span>
-            {% elif a.status == 'ignored' %}<span class="muted">ignored</span>
-            {% elif a.status == 'overdue' %}<strong style="color:var(--pico-del-color, red)">overdue</strong>
-            {% else %}<span class="muted">pending</span>{% endif %}
+          <td style="width:6rem;">
+            {% if a.status == 'completed' %}<span class="st-ok">✓ done</span>
+            {% elif a.status == 'skipped' %}<span class="st-muted">skipped</span>
+            {% elif a.status == 'ignored' %}<span class="st-muted">ignored</span>
+            {% elif a.status == 'overdue' %}<strong class="st-warn">overdue</strong>
+            {% else %}<span class="st-muted">pending</span>{% endif %}
           </td>
           <td>
             {% if a.status in ('pending', 'overdue') %}
@@ -71,7 +68,7 @@
       </tbody>
     </table>
   {% else %}
-    <p class="muted" style="margin:0">Nothing assigned today.</p>
+    <p class="muted" style="margin:0">🎉 Nothing on your plate today — enjoy the break!</p>
   {% endif %}
 </article>
 
@@ -86,10 +83,10 @@
     <tbody>
       {% for row in upcoming %}
       <tr>
-        <td>{{ row.chore.name }}{% if row.chore.priority == 1 %} <small class="muted">⚠</small>{% endif %}</td>
-        <td class="muted" style="text-align:right; white-space:nowrap;">
-          {% if row.next_due == today %}today
-          {% else %}{{ row.next_due }}{% endif %}
+        <td>{{ row.chore.name }}{% if row.chore.priority == 1 %} <small class="st-warn">⚠</small>{% endif %}</td>
+        <td class="muted" style="text-align:right; white-space:nowrap; font-size:0.8rem;">
+          {% if row.next_due == today %}<span class="st-warn">today</span>
+          {% else %}{{ row.next_due[5:] }}{% endif %}
         </td>
       </tr>
       {% endfor %}
@@ -106,12 +103,12 @@
       {% for a in recent %}
       <tr>
         <td>{{ a.chore.name }}</td>
-        <td class="muted" style="text-align:right; white-space:nowrap; font-size:0.8rem;">
-          {% if a.status == 'completed' %}<span style="color:var(--pico-ins-color,green)">✓</span>
-          {% elif a.status == 'skipped' %}skip
-          {% elif a.status == 'ignored' %}ign
-          {% else %}{{ a.status }}{% endif %}
-          &nbsp;{{ a.assigned_date[5:] }}
+        <td style="text-align:right; white-space:nowrap; font-size:0.8rem;">
+          {% if a.status == 'completed' %}<span class="st-ok">✓</span>
+          {% elif a.status == 'skipped' %}<span class="st-muted">skip</span>
+          {% elif a.status == 'ignored' %}<span class="st-muted">ign</span>
+          {% else %}<span class="st-muted">{{ a.status }}</span>{% endif %}
+          <span class="muted">&nbsp;{{ a.assigned_date[5:] }}</span>
         </td>
       </tr>
       {% endfor %}

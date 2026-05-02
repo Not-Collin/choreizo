@@ -18,10 +18,9 @@
     <table class="compact striped">
       <thead>
         <tr>
-          <th style="width: 3rem;"></th>
+          <th style="width: 2.5rem;"></th>
           <th>Chore</th>
           <th>Frequency</th>
-          <th>Priority</th>
           <th>Next due</th>
           <th>Status</th>
         </tr>
@@ -38,16 +37,21 @@
           </td>
           <td>
             <strong>{{ row.chore.name }}</strong>
+            {% if row.chore.priority == 1 %} <small class="st-warn">⚠</small>{% endif %}
             {% if row.chore.description %}<br><small class="muted">{{ row.chore.description }}</small>{% endif %}
           </td>
-          <td>every {{ row.chore.frequency_days }}d</td>
-          <td>{{ 'high' if row.chore.priority == 1 else 'normal' }}</td>
-          <td class="muted">{{ row.next_due or '—' }}</td>
+          <td class="muted">{{ freq_display(row.chore.frequency_days) }}</td>
+          <td class="muted">
+            {% if row.next_due %}
+              {% if row.next_due == today %}<span class="st-warn">today</span>
+              {% else %}{{ row.next_due }}{% endif %}
+            {% else %}—{% endif %}
+          </td>
           <td>
             {% if row.locked %}
               <small class="muted">admin-locked</small>
             {% elif row.eligible %}
-              <small>opted in</small>
+              <small class="st-ok">opted in</small>
             {% else %}
               <small class="muted">opted out</small>
             {% endif %}
